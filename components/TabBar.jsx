@@ -1,14 +1,13 @@
-import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { LayoutDashboard, BookOpen, Trophy, History, Sparkle } from 'lucide-react-native';
+import { LayoutDashboard, Trophy, History, Sparkle, Book } from 'lucide-react-native';
 
 const TABS = [
-  { label: 'Visão geral', Icon: LayoutDashboard, route: '/' },
-  { label: 'Leituras',    Icon: BookOpen,         route: '/leituras' },
-  { label: 'Assistente',            Icon: Sparkle,             route: '/assistente', isFab: true },
-  { label: 'Metas',       Icon: Trophy,           route: '/metas' },
-  { label: 'Histórico',   Icon: History,          route: '/historico' },
+  { label: 'Visão geral', Icon: LayoutDashboard, route: '/visao-geral' },
+  { label: 'Leituras', Icon: Book, route: '/leituras' },
+  { label: 'Assistente', Icon: Sparkle, route: '/assistente', isFab: true },
+  { label: 'Metas', Icon: Trophy, route: '/metas' },
+  { label: 'Histórico', Icon: History, route: '/historico' },
 ];
 
 export default function TabBar() {
@@ -35,7 +34,7 @@ export default function TabBar() {
 
         const isActive =
           pathname === route ||
-          (route !== '/' && pathname.startsWith(route));
+          pathname.startsWith(route + '/');
 
         return (
           <TouchableOpacity
@@ -48,7 +47,6 @@ export default function TabBar() {
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {label}
             </Text>
-            {isActive && <View style={styles.activeDot} />}
           </TouchableOpacity>
         );
       })}
@@ -64,31 +62,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E0DDD6',
-    paddingBottom: 28,
-    paddingTop: 8,
+    paddingBottom: 12,
     paddingHorizontal: 8,
+    fontFamily: 'KoHo_400Regular',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 4,
   },
-  tabLabel: {
-    fontSize: 10,
-    color: '#999999',
-    marginTop: 2,
-  },
-  tabLabelActive: {
-    fontWeight: '600',
-    color: '#0292B7',
-  },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#0292B7',
-    marginTop: 2,
-  },
+  tabLabel: { fontFamily: 'KoHo_400Regular', fontSize: 10, color: '#999999', marginTop: 2 },
+  tabLabelActive: { fontFamily: 'KoHo_600SemiBold', color: '#0292B7' },
   fab: {
     width: 56,
     height: 56,
@@ -96,11 +80,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0292B7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
     shadowColor: '#0292B7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 20,
+    position: 'relative',
+    bottom: 28,
   },
 });

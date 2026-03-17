@@ -1,3 +1,4 @@
+import { Funnel } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -15,9 +16,9 @@ const MOCK_BOOKS = [
 ];
 
 const STATUS_CONFIG = {
-  devolvido:     { label: 'Devolvido',      bg: '#D4EDDA', text: '#2E7D4F' },
-  atrasado:      { label: 'Atrasado',       bg: '#FADBD8', text: '#C0392B' },
-  proximoPrazo:  { label: 'Próximo prazo',  bg: '#FEF3CD', text: '#B7770D' },
+  devolvido:    { label: 'Devolvido',     bg: '#D4EDDA', text: '#2E7D4F' },
+  atrasado:     { label: 'Atrasado',      bg: '#FADBD8', text: '#C0392B' },
+  proximoPrazo: { label: 'Próximo prazo', bg: '#FEF3CD', text: '#B7770D' },
 };
 
 function StatusBadge({ status }) {
@@ -46,24 +47,12 @@ export default function HistoricoScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Filtrar por */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.filterBtn}>
-          <Text style={styles.filterText}>⊟  Filtrar por</Text>
+          <Text style={styles.filterText}><Funnel size={12}/> Filtrar por</Text>
         </TouchableOpacity>
-
-        {/* Lista de livros */}
         {books.map((book) => (
-          <BookCard
-            key={book.id}
-            title={book.title}
-            withdrawnDate={book.withdrawnDate}
-            status={book.status}
-          />
+          <BookCard key={book.id} title={book.title} withdrawnDate={book.withdrawnDate} status={book.status} />
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -71,20 +60,9 @@ export default function HistoricoScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F5F2EB',
-  },
-  scroll: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  content: {
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-
-  // Filtro
+  safe: { flex: 1, backgroundColor: '#F5F2EB' },
+  scroll: { flex: 1, paddingHorizontal: 20 },
+  content: { paddingTop: 16, paddingBottom: 32 },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -96,12 +74,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 16,
   },
-  filterText: {
-    fontSize: 13,
-    color: '#0292B7',
-  },
-
-  // Card
+  filterText: { fontFamily: 'KoHo_500Medium', fontSize: 13, color: '#0292B7', display: 'flex', alignItems: 'center', gap: 4 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -117,29 +90,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  cardInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  cardDate: {
-    fontSize: 12,
-    color: '#999999',
-    marginTop: 2,
-  },
-
-  // Badge
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
+  cardInfo: { flex: 1, marginRight: 12 },
+  cardTitle: { fontFamily: 'KoHo_600SemiBold', fontSize: 15, color: '#1A1A1A' },
+  cardDate: { fontFamily: 'KoHo_400Regular', fontSize: 12, color: '#999999', marginTop: 2 },
+  badge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 },
+  badgeText: { fontFamily: 'KoHo_500Medium', fontSize: 11 },
 });

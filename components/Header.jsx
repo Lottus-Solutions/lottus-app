@@ -1,10 +1,14 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { SvgUri } from 'react-native-svg';
+import { Asset } from 'expo-asset';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, User } from 'lucide-react-native';
 
 export default function Header({ showBack = false }) {
   const router = useRouter();
+  const logoSource = require('../assets/logo_lottus.svg');
+  const logoAsset = Asset.fromModule(logoSource);
 
   return (
     <View style={styles.container}>
@@ -14,9 +18,7 @@ export default function Header({ showBack = false }) {
         </TouchableOpacity>
       ) : (
         <View style={styles.logoWrapper}>
-
-          <Image source={"./logo_lottus.svg"} style={styles.logo} resizeMode="contain" />
-
+            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
         </View>
       )}
 
@@ -34,6 +36,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 16,
+    marginTop: 16,
     paddingBottom: 12,
     backgroundColor: '#F5F2EB',
   },
@@ -43,7 +46,8 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 80,
-    height: 32,
+    right: 5,
+    position: 'relative',
   },
   logoPlaceholder: {
     width: 32,
