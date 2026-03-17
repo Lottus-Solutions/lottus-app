@@ -1,7 +1,9 @@
+import { ArrowRight, MoveRight } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform, StyleSheet, SafeAreaView,
+  TouchableWithoutFeedback, Keyboard,
 } from 'react-native';
 
 const USER_NAME = 'Caio';
@@ -19,7 +21,7 @@ function ChatBubble({ message, isUser }) {
 function ChatInput({ onSend }) {
   const [text, setText] = useState('');
   const handleSend = () => {
-    if (text.trim()) { onSend(text.trim()); setText(''); }
+    if (text.trim()) { onSend(text.trim()); setText(''); Keyboard.dismiss(); }
   };
   return (
     <View style={styles.inputContainer}>
@@ -35,7 +37,7 @@ function ChatInput({ onSend }) {
         onSubmitEditing={handleSend}
       />
       <TouchableOpacity onPress={handleSend} style={[styles.sendBtn, !text.trim() && styles.sendBtnDisabled]} disabled={!text.trim()}>
-        <Text style={styles.sendIcon}>→</Text>
+        <ArrowRight size={16} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -49,21 +51,33 @@ export default function AssistenteScreen() {
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
   };
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        {messages.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.greeting}>Olá, {USER_NAME}</Text>
-            <Text style={styles.greeting}>Como posso te ajudar?</Text>
-          </View>
-        ) : (
-          <ScrollView ref={scrollViewRef} style={styles.messageList} contentContainerStyle={styles.messageContent} showsVerticalScrollIndicator={false}>
-            {messages.map((msg) => <ChatBubble key={msg.id} message={msg.text} isUser={msg.isUser} />)}
-          </ScrollView>
-        )}
-        <ChatInput onSend={handleSend} />
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 120 : 0}
+        >
+          {messages.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.greeting}>Olá, {USER_NAME}</Text>
+              <Text style={styles.greeting}>Como posso te ajudar?</Text>
+            </View>
+          ) : (
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.messageList}
+              contentContainerStyle={[styles.messageContent, { flexGrow: 1 }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {messages.map((msg) => <ChatBubble key={msg.id} message={msg.text} isUser={msg.isUser} />)}
+            </ScrollView>
+          )}
+          <ChatInput onSend={handleSend} />
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 

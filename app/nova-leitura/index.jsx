@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 
 function ScannerArea() {
@@ -46,6 +45,6 @@ const styles = StyleSheet.create({
   bottomRight: { bottom: 16, right: 16, borderLeftWidth: 0,   borderTopWidth: 0,    borderBottomRightRadius: 4 },
   scanLine: { width: '70%', height: 1, backgroundColor: '#0292B7', opacity: 0.4 },
   manualContainer: { borderTopWidth: 1, borderTopColor: '#E0DDD6', backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingVertical: 16 },
-  manualBtn: { alignItems: 'center', paddingVertical: 8 },
+  manualBtn: { alignItems: 'center', paddingVertical: 10, marginBottom: 12 },
   manualText: { fontFamily: 'KoHo_500Medium', fontSize: 14, color: '#555555' },
 });

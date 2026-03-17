@@ -49,7 +49,7 @@ export default function HistoricoScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.filterBtn}>
-          <Text style={styles.filterText}><Funnel size={12}/> Filtrar por</Text>
+          <Text style={styles.filterText}><Funnel size={12} style={{ color: '#0292B7' }} /> Filtrar por</Text>
         </TouchableOpacity>
         {books.map((book) => (
           <BookCard key={book.id} title={book.title} withdrawnDate={book.withdrawnDate} status={book.status} />
