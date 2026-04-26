@@ -9,10 +9,12 @@ import TabBar from '../components/TabBar';
 SplashScreen.preventAutoHideAsync();
 
 const BACK_ROUTES = ['/nova-leitura'];
+const AUTH_ROUTES = ['/login', '/cadastro'];
 
 export default function RootLayout() {
   const pathname = usePathname();
   const showBack = BACK_ROUTES.includes(pathname);
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
   const [fontsLoaded] = useFonts({
     KoHo_300Light,
@@ -30,11 +32,11 @@ export default function RootLayout() {
 
   return (
     <View style={styles.root}>
-      <Header showBack={showBack} />
+      {!isAuthRoute && <Header showBack={showBack} />}
       <View style={styles.content}>
         <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
       </View>
-      <TabBar />
+      {!isAuthRoute && <TabBar />}
     </View>
   );
 }

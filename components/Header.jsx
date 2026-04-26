@@ -1,31 +1,82 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, TouchableOpacity, StyleSheet, Modal, Pressable, Text } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { Asset } from 'expo-asset';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, User } from 'lucide-react-native';
 
+const MOCK_USER_DATA = {
+  id: 9007199254740991,
+  nome: 'Usuario Lottus',
+  email: 'usuario@lottus.com',
+  telefone: '(11) 99999-9999',
+  dtRegistro: '2026-04-26T04:41:45.059Z',
+  idAvatar: 'string',
+  matriculasAlunos: ['2024001'],
+};
+
 export default function Header({ showBack = false }) {
   const router = useRouter();
   const logoSource = require('../assets/logo_lottus.svg');
   const logoUri = Asset.fromModule(logoSource).uri;
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const matriculaAluno = MOCK_USER_DATA.matriculasAlunos[0] || '-';
 
   return (
-    <View style={styles.container}>
-      {showBack ? (
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={24} color="#0292B7" />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.logoWrapper}>
-          <SvgUri uri={logoUri} width={80} height={32} style={styles.logo} />
-        </View>
-      )}
+    <>
+      <View style={styles.container}>
+        {showBack ? (
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ChevronLeft size={24} color="#0292B7" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.logoWrapper}>
+            <SvgUri uri={logoUri} width={80} height={32} style={styles.logo} />
+          </View>
+        )}
 
-      <TouchableOpacity style={styles.profileBtn}>
-        <User size={18} color="#0292B7" />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={styles.profileBtn}
+          activeOpacity={0.8}
+          onPress={() => setIsProfileMenuOpen(true)}
+        >
+          <User size={18} color="#0292B7" />
+        </TouchableOpacity>
+      </View>
+
+      <Modal
+        transparent
+        visible={isProfileMenuOpen}
+        animationType="fade"
+        onRequestClose={() => setIsProfileMenuOpen(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setIsProfileMenuOpen(false)}>
+          <Pressable style={styles.menuCard} onPress={() => {}}>
+            <Text style={styles.menuTitle}>Perfil</Text>
+
+            <View style={styles.infoGroup}>
+              <Text style={styles.infoLabel}>Nome</Text>
+              <Text style={styles.infoValue}>{MOCK_USER_DATA.nome}</Text>
+            </View>
+
+            <View style={styles.infoGroup}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{MOCK_USER_DATA.email}</Text>
+            </View>
+
+            <View style={styles.infoGroup}>
+              <Text style={styles.infoLabel}>Telefone</Text>
+              <Text style={styles.infoValue}>{MOCK_USER_DATA.telefone}</Text>
+            </View>
+
+            <View style={styles.infoGroupLast}>
+              <Text style={styles.infoLabel}>Matricula do aluno</Text>
+              <Text style={styles.infoValue}>{matriculaAluno}</Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -66,5 +117,48 @@ const styles = StyleSheet.create({
     borderColor: '#0292B7',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    paddingTop: 105,
+    paddingHorizontal: 18,
+    alignItems: 'flex-end',
+  },
+  menuCard: {
+    width: 260,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E8E3D8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  menuTitle: {
+    fontFamily: 'KoHo_700Bold',
+    fontSize: 16,
+    color: '#036C87',
+    marginBottom: 10,
+  },
+  infoGroup: {
+    marginBottom: 10,
+  },
+  infoGroupLast: {
+    marginBottom: 0,
+  },
+  infoLabel: {
+    fontFamily: 'KoHo_500Medium',
+    fontSize: 12,
+    color: '#777777',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 14,
+    color: '#1A1A1A',
   },
 });
