@@ -18,7 +18,7 @@ import { DataSyncProvider } from '../src/context/DataSyncContext';
 
 SplashScreen.preventAutoHideAsync();
 
-const BACK_ROUTES = ['/nova-leitura'];
+const BACK_ROUTES = ['/nova-leitura', '/perfil'];
 const AUTH_ROUTES = ['/login', '/cadastro'];
 const PUBLIC_PATHS = new Set(['/login', '/cadastro', '/']); // permitidas sem auth
 

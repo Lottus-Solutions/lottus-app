@@ -13,7 +13,7 @@ import {
 import { SvgUri } from 'react-native-svg';
 import { Asset } from 'expo-asset';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, User, LogOut } from 'lucide-react-native';
+import { ChevronLeft, User, LogOut, Pencil } from 'lucide-react-native';
 
 import { useAuth } from '../src/context/AuthContext';
 
@@ -39,6 +39,12 @@ export default function Header({ showBack = false }) {
 
   const matriculaAluno =
     matricula || user?.matriculasAlunos?.[0] || '-';
+  const userInitials = (user?.nome || '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -54,6 +60,11 @@ export default function Header({ showBack = false }) {
     } finally {
       setLoggingOut(false);
     }
+  }
+
+  function handleOpenProfileEdit() {
+    setIsProfileMenuOpen(false);
+    router.push('/perfil');
   }
 
   return (
@@ -89,7 +100,15 @@ export default function Header({ showBack = false }) {
           onPress={() => setIsProfileMenuOpen(false)}
         >
           <Pressable style={styles.menuCard} onPress={() => {}}>
-            <Text style={styles.menuTitle}>Perfil</Text>
+            <View style={styles.menuHeader}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{userInitials || '?'}</Text>
+              </View>
+              <View style={styles.menuHeaderTextWrap}>
+                <Text style={styles.menuTitle}>Perfil</Text>
+                <Text style={styles.menuSubtitle}>Dados da sua conta</Text>
+              </View>
+            </View>
 
             <View style={styles.infoGroup}>
               <Text style={styles.infoLabel}>Nome</Text>
@@ -110,6 +129,15 @@ export default function Header({ showBack = false }) {
               <Text style={styles.infoLabel}>Matricula do aluno</Text>
               <Text style={styles.infoValue}>{matriculaAluno}</Text>
             </View>
+
+            <TouchableOpacity
+              style={styles.editBtn}
+              activeOpacity={0.8}
+              onPress={handleOpenProfileEdit}
+            >
+              <Pencil size={14} color="#036C87" />
+              <Text style={styles.editBtnText}>Editar perfil</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.logoutBtn, loggingOut && styles.logoutBtnDisabled]}
@@ -195,7 +223,36 @@ const styles = StyleSheet.create({
     fontFamily: 'KoHo_700Bold',
     fontSize: 16,
     color: '#036C87',
-    marginBottom: 10,
+  },
+  menuSubtitle: {
+    marginTop: 1,
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 12,
+    color: '#6E8E96',
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  menuHeaderTextWrap: {
+    flex: 1,
+  },
+  avatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 9,
+    backgroundColor: '#E8F4F7',
+    borderWidth: 1,
+    borderColor: '#CDE8EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: 'KoHo_700Bold',
+    fontSize: 13,
+    color: '#036C87',
   },
   infoGroup: {
     marginBottom: 10,
@@ -213,6 +270,24 @@ const styles = StyleSheet.create({
     fontFamily: 'KoHo_600SemiBold',
     fontSize: 14,
     color: '#1A1A1A',
+  },
+  editBtn: {
+    marginTop: 12,
+    marginBottom: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#CEE7EE',
+    borderRadius: 10,
+    paddingVertical: 8,
+    backgroundColor: '#F5FCFE',
+  },
+  editBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 13,
+    color: '#036C87',
   },
   logoutBtn: {
     marginTop: 14,
