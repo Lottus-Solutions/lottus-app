@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { useDataSync, useDataVersion } from '../../src/context/DataSyncContext';
 import emprestimoService from '../../src/services/emprestimoService';
+import assistenteService from '../../src/services/assistenteService';
+import usuarioService from '../../src/services/usuarioService';
 import { ApiError } from '../../src/api/client';
 
 function diasAteData(dateStr) {
@@ -31,6 +33,21 @@ function formatDate(iso) {
   if (!iso) return '-';
   const [y, m, d] = iso.split('-');
   return y && m && d ? `${d}/${m}/${y}` : iso;
+}
+
+function formatRecommendationItem(item) {
+  if (item == null) return '';
+  if (typeof item === 'string') return item;
+  if (typeof item !== 'object') return String(item);
+
+  const title = item.titulo || item.livroTitulo || item.nome || item.title || 'Recomendação';
+  const author = item.autor || item.autora || item.writer;
+  const reason = item.motivo || item.justificativa || item.descricao || item.resumo;
+
+  const lines = [title];
+  if (author) lines.push(author);
+  if (reason) lines.push(reason);
+  return lines.join('\n');
 }
 
 function CurrentBookCard({ emprestimo, onFinalize, finalizing }) {
@@ -83,6 +100,12 @@ export default function LeiturasScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [finalizing, setFinalizing] = useState(false);
+  const [loadingAlunoIA, setLoadingAlunoIA] = useState(true);
+  const [alunoIA, setAlunoIA] = useState(null);
+  const [recomendando, setRecomendando] = useState(false);
+  const [recomendacoes, setRecomendacoes] = useState(null);
+  const [recomendacoesError, setRecomendacoesError] = useState('');
+  const [recomendacoesMessage, setRecomendacoesMessage] = useState('');
 
   const fetchData = useCallback(async () => {
     if (!matricula) {
@@ -118,6 +141,30 @@ export default function LeiturasScreen() {
     }
   }, [matricula]);
 
+  const fetchAlunoIA = useCallback(async () => {
+    if (!matricula) {
+      setAlunoIA(null);
+      setLoadingAlunoIA(false);
+      return;
+    }
+
+    setLoadingAlunoIA(true);
+    try {
+      const alunos = await usuarioService.listAlunosVinculados();
+      if (!Array.isArray(alunos) || alunos.length === 0) {
+        setAlunoIA(null);
+        return;
+      }
+
+      const selectedByMatricula = alunos.find((aluno) => String(aluno?.matricula) === String(matricula));
+      setAlunoIA(selectedByMatricula || alunos[0] || null);
+    } catch {
+      setAlunoIA(null);
+    } finally {
+      setLoadingAlunoIA(false);
+    }
+  }, [matricula]);
+
   // Reage a:
   // - login (authenticated)
   // - troca de matrícula
@@ -127,6 +174,11 @@ export default function LeiturasScreen() {
     setLoading(true);
     fetchData();
   }, [authenticated, fetchData, versionEmprestimos]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    fetchAlunoIA();
+  }, [authenticated, fetchAlunoIA]);
 
   // Recarrega ao voltar para esta tela.
   useFocusEffect(
@@ -175,6 +227,49 @@ export default function LeiturasScreen() {
       setFinalizing(false);
     }
   };
+
+  const handleRecomendacoesIA = useCallback(async () => {
+    if (recomendando || !alunoIA?.id) return;
+
+    const alunoId = Number(alunoIA.id);
+    if (!Number.isInteger(alunoId)) {
+      setRecomendacoesError('Nenhum aluno valido foi encontrado para gerar recomendações.');
+      return;
+    }
+
+    setRecomendando(true);
+    setRecomendacoesError('');
+    setRecomendacoesMessage('');
+    setRecomendacoes(null);
+
+    try {
+      const result = await assistenteService.recomendarLeituras(alunoId);
+      const rawRecomendacoes =
+        result?.recomendacoes || result?.recommendations || result?.data || result;
+      const list = Array.isArray(rawRecomendacoes)
+        ? rawRecomendacoes
+        : rawRecomendacoes
+        ? [rawRecomendacoes]
+        : [];
+
+      setRecomendacoes(list);
+      setRecomendacoesMessage('Recomendações da IA geradas com sucesso.');
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message || 'Nao foi possivel gerar as recomendações da IA.'
+          : 'Nao foi possivel gerar as recomendações da IA.';
+      setRecomendacoesError(msg);
+    } finally {
+      setRecomendando(false);
+    }
+  }, [alunoIA, recomendando]);
+
+  const alunoIAText = useMemo(() => {
+    if (loadingAlunoIA) return 'Carregando aluno selecionado para recomendações...';
+    if (!alunoIA) return 'Nenhum aluno vinculado disponível para recomendações.';
+    return `Aluno alvo: ${alunoIA.nome || 'Aluno'} (RA ${alunoIA.matricula})`;
+  }, [alunoIA, loadingAlunoIA]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -225,6 +320,39 @@ export default function LeiturasScreen() {
             >
               <Text style={styles.novaLeituraText}>+ Nova leitura</Text>
             </TouchableOpacity>
+
+            <View style={styles.aiCard}>
+              <TouchableOpacity
+                onPress={handleRecomendacoesIA}
+                style={[
+                  styles.aiBtn,
+                  (recomendando || !alunoIA || loadingAlunoIA) && styles.aiBtnDisabled,
+                ]}
+                activeOpacity={0.85}
+                disabled={recomendando || !alunoIA || loadingAlunoIA}
+              >
+                {recomendando ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.aiBtnText}>Recomendações da IA</Text>
+                )}
+              </TouchableOpacity>
+
+              {!!recomendacoesError && <Text style={styles.errorBanner}>{recomendacoesError}</Text>}
+              {!!recomendacoesMessage && (
+                <Text style={styles.successBanner}>{recomendacoesMessage}</Text>
+              )}
+
+              {Array.isArray(recomendacoes) && recomendacoes.length > 0 ? (
+                <View style={styles.recommendationsWrap}>
+                  {recomendacoes.map((item, index) => (
+                    <View key={`${index}-${String(item?.id ?? item?.titulo ?? index)}`} style={styles.recommendationCard}>
+                      <Text style={styles.recommendationText}>{formatRecommendationItem(item)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
 
             <Text style={[styles.sectionLabel, { marginTop: 8 }]}>Últimas finalizadas</Text>
             {pendentes.length === 0 ? (
@@ -306,6 +434,60 @@ const styles = StyleSheet.create({
   finalizeText: { fontFamily: 'KoHo_600SemiBold', fontSize: 12, color: '#FFFFFF' },
   novaLeituraBtn: { alignItems: 'center', paddingVertical: 12 },
   novaLeituraText: { fontFamily: 'KoHo_600SemiBold', fontSize: 15, color: '#0292B7' },
+  aiCard: {
+    marginTop: 4,
+    marginBottom: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D8ECF2',
+    backgroundColor: '#F8FCFD',
+    padding: 14,
+  },
+  aiHelperText: {
+    marginBottom: 10,
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 12,
+    color: '#6A6A6A',
+  },
+  aiBtn: {
+    minHeight: 42,
+    borderRadius: 12,
+    backgroundColor: '#0292B7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBtnDisabled: {
+    opacity: 0.6,
+  },
+  aiBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  recommendationsWrap: {
+    marginTop: 12,
+    gap: 10,
+  },
+  recommendationCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E4F0F3',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+  },
+  recommendationText: {
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#1A1A1A',
+  },
+  successBanner: {
+    fontFamily: 'KoHo_500Medium',
+    fontSize: 12,
+    color: '#2F885B',
+    textAlign: 'center',
+    marginTop: 12,
+  },
   errorBanner: {
     fontFamily: 'KoHo_500Medium',
     fontSize: 12,
