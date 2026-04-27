@@ -1,26 +1,60 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Modal, Pressable, Text } from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Pressable,
+  Text,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { Asset } from 'expo-asset';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, User } from 'lucide-react-native';
+import { ChevronLeft, User, LogOut } from 'lucide-react-native';
 
-const MOCK_USER_DATA = {
-  id: 9007199254740991,
-  nome: 'Usuario Lottus',
-  email: 'usuario@lottus.com',
-  telefone: '(11) 99999-9999',
-  dtRegistro: '2026-04-26T04:41:45.059Z',
-  idAvatar: 'string',
-  matriculasAlunos: ['2024001'],
-};
+import { useAuth } from '../src/context/AuthContext';
+
+function formatPhone(raw) {
+  if (!raw) return '-';
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return raw;
+}
 
 export default function Header({ showBack = false }) {
   const router = useRouter();
+  const { user, matricula, logout } = useAuth();
   const logoSource = require('../assets/logo_lottus.svg');
   const logoUri = Asset.fromModule(logoSource).uri;
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const matriculaAluno = MOCK_USER_DATA.matriculasAlunos[0] || '-';
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const matriculaAluno =
+    matricula || user?.matriculasAlunos?.[0] || '-';
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+      setIsProfileMenuOpen(false);
+      router.replace('/login');
+    } catch (e) {
+      if (Platform.OS !== 'web') {
+        Alert.alert('Sair', 'Nao foi possivel sair da conta agora.');
+      }
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <>
@@ -50,29 +84,48 @@ export default function Header({ showBack = false }) {
         animationType="fade"
         onRequestClose={() => setIsProfileMenuOpen(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setIsProfileMenuOpen(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setIsProfileMenuOpen(false)}
+        >
           <Pressable style={styles.menuCard} onPress={() => {}}>
             <Text style={styles.menuTitle}>Perfil</Text>
 
             <View style={styles.infoGroup}>
               <Text style={styles.infoLabel}>Nome</Text>
-              <Text style={styles.infoValue}>{MOCK_USER_DATA.nome}</Text>
+              <Text style={styles.infoValue}>{user?.nome || '-'}</Text>
             </View>
 
             <View style={styles.infoGroup}>
               <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{MOCK_USER_DATA.email}</Text>
+              <Text style={styles.infoValue}>{user?.email || '-'}</Text>
             </View>
 
             <View style={styles.infoGroup}>
               <Text style={styles.infoLabel}>Telefone</Text>
-              <Text style={styles.infoValue}>{MOCK_USER_DATA.telefone}</Text>
+              <Text style={styles.infoValue}>{formatPhone(user?.telefone)}</Text>
             </View>
 
             <View style={styles.infoGroupLast}>
               <Text style={styles.infoLabel}>Matricula do aluno</Text>
               <Text style={styles.infoValue}>{matriculaAluno}</Text>
             </View>
+
+            <TouchableOpacity
+              style={[styles.logoutBtn, loggingOut && styles.logoutBtnDisabled]}
+              activeOpacity={0.8}
+              onPress={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? (
+                <ActivityIndicator color="#B43D35" />
+              ) : (
+                <>
+                  <LogOut size={14} color="#B43D35" />
+                  <Text style={styles.logoutText}>Sair</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
@@ -160,5 +213,23 @@ const styles = StyleSheet.create({
     fontFamily: 'KoHo_600SemiBold',
     fontSize: 14,
     color: '#1A1A1A',
+  },
+  logoutBtn: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#F0CFCB',
+    borderRadius: 10,
+    paddingVertical: 8,
+    backgroundColor: '#FCF1F0',
+  },
+  logoutBtnDisabled: { opacity: 0.6 },
+  logoutText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 13,
+    color: '#B43D35',
   },
 });

@@ -1,0 +1,2009 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lottus Mobile API",
+    "description": "API para controle de leituras - gerenciamento de alunos, emprestimos e usuarios (pais)",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "security": [
+    {
+      "Bearer Authentication": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Alunos",
+      "description": "Verificacao publica de matricula (RA) para cadastro de responsavel"
+    },
+    {
+      "name": "Metas",
+      "description": "Metas de leitura definidas pelo responsavel para o aluno vinculado"
+    },
+    {
+      "name": "Emprestimos",
+      "description": "Historico de leituras do aluno vinculado ao responsavel"
+    },
+    {
+      "name": "Livros",
+      "description": "Listagem e busca de livros"
+    },
+    {
+      "name": "Usuarios",
+      "description": "Gerenciamento do perfil do usuario (pai/responsavel)"
+    },
+    {
+      "name": "Autenticacao",
+      "description": "Endpoints de registro, login, refresh e logout"
+    }
+  ],
+  "paths": {
+    "/api/usuarios/me": {
+      "get": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Obter perfil",
+        "description": "Retorna os dados do usuario autenticado com as matriculas dos alunos vinculados",
+        "operationId": "getProfile",
+        "responses": {
+          "200": {
+            "description": "Perfil retornado com sucesso",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUsuarioResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Nao autenticado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUsuarioResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Atualizar perfil",
+        "description": "Atualiza nome, telefone e/ou avatar. Email nao e alteravel por este endpoint",
+        "operationId": "updateProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUsuarioCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Perfil atualizado com sucesso",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUsuarioResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUsuarioResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Nao autenticado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUsuarioResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Atualizar perfil (parcial)",
+        "description": "Alias PATCH para atualizacao parcial do perfil",
+        "operationId": "patchProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUsuarioCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUsuarioResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/metas/{metaId}": {
+      "get": {
+        "tags": [
+          "Metas"
+        ],
+        "summary": "Obter meta",
+        "operationId": "buscar",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMetaResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Metas"
+        ],
+        "summary": "Atualizar meta",
+        "description": "Atualiza campos editaveis. Tipo e aluno nao podem mudar",
+        "operationId": "atualizar",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMetaCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMetaResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Metas"
+        ],
+        "summary": "Remover meta",
+        "operationId": "remover",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/usuarios/me/senha": {
+      "post": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Alterar senha",
+        "description": "Altera a senha do usuario autenticado. Requer a senha atual. Revoga todos os refresh tokens.",
+        "operationId": "changePassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Senha alterada com sucesso"
+          },
+          "400": {
+            "description": "Nova senha igual a atual ou invalida"
+          },
+          "401": {
+            "description": "Senha atual incorreta"
+          }
+        }
+      }
+    },
+    "/api/usuarios/me/alunos/{matricula}": {
+      "post": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Vincular aluno ao responsável",
+        "description": "Vincula o responsável a um aluno e retorna os dados do aluno",
+        "operationId": "vincularAluno",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAlunoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Autenticacao"
+        ],
+        "summary": "Registrar novo usuario (pai)",
+        "description": "Cria um novo usuario vinculado a um aluno existente pela matricula (RA)",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario registrado com sucesso",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aluno nao encontrado com a matricula informada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email ja cadastrado ou aluno ja vinculado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "Autenticacao"
+        ],
+        "summary": "Renovar token",
+        "description": "Gera novos tokens usando o refresh token (rotacao automatica)",
+        "operationId": "refresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Token renovado com sucesso",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh token invalido ou expirado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Autenticacao"
+        ],
+        "summary": "Logout",
+        "description": "Revoga todos os refresh tokens do usuario autenticado",
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "description": "Logout realizado com sucesso",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Usuario nao autenticado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Autenticacao"
+        ],
+        "summary": "Login de usuario",
+        "description": "Autentica o usuario e retorna tokens JWT",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Login realizado com sucesso",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciais invalidas",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/metas": {
+      "get": {
+        "tags": [
+          "Metas"
+        ],
+        "summary": "Listar metas",
+        "description": "Lista as metas do aluno. Aceita filtro opcional por status",
+        "operationId": "listar",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ATIVA",
+                "CONCLUIDA",
+                "ARQUIVADA"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListMetaResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Metas"
+        ],
+        "summary": "Criar meta",
+        "description": "O responsavel cria uma nova meta para um aluno vinculado",
+        "operationId": "criar",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "description": "Matricula do aluno",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMetaCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Meta criada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMetaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados invalidos",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMetaResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aluno nao vinculado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMetaResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/emprestimos": {
+      "get": {
+        "tags": [
+          "Emprestimos"
+        ],
+        "summary": "Historico de leituras",
+        "description": "Retorna o historico completo de leituras do aluno",
+        "operationId": "historico",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListEmprestimoResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Emprestimos"
+        ],
+        "summary": "Registrar nova leitura",
+        "description": "O responsavel registra uma nova leitura para um aluno vinculado",
+        "operationId": "registrarLeitura",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "description": "Matricula do aluno",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmprestimoCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Leitura registrada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aluno nao vinculado ao responsavel",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aluno ou livro nao encontrado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Aluno ja possui leitura em andamento",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/emprestimos/{emprestimoId}/concluir": {
+      "post": {
+        "tags": [
+          "Emprestimos"
+        ],
+        "summary": "Concluir leitura",
+        "description": "Marca a leitura como finalizada e registra a data de devolucao",
+        "operationId": "concluir",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "emprestimoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leitura concluida",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Leitura nao pertence ao aluno",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Leitura nao encontrada",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Leitura ja concluida",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/metas/{metaId}/progresso": {
+      "patch": {
+        "tags": [
+          "Metas"
+        ],
+        "summary": "Atualizar progresso manualmente",
+        "operationId": "atualizarProgresso",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarProgressoCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMetaResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth2/authorization/google": {
+      "get": {
+        "tags": [
+          "Autenticacao"
+        ],
+        "summary": "Login com Google (OAuth2/OIDC)",
+        "description": "Redireciona o usuario para a tela de login do Google. Apos autenticacao, o Google redireciona de volta para a aplicacao com os tokens JWT via query params no redirect URI configurado (ex: http://localhost:5173/oauth2/callback?accessToken=...&refreshToken=...). Este endpoint e gerenciado pelo Spring Security e nao deve ser chamado via AJAX/fetch.",
+        "operationId": "googleLogin",
+        "responses": {
+          "302": {
+            "description": "Redireciona para Google OAuth2"
+          },
+          "500": {
+            "description": "Erro na configuracao OAuth2"
+          }
+        }
+      }
+    },
+    "/api/usuarios/me/alunos": {
+      "get": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Listar alunos vinculados",
+        "description": "Retorna os alunos vinculados ao responsavel autenticado com dados resumidos (turma, livros lidos, livro atual)",
+        "operationId": "listarAlunosVinculados",
+        "responses": {
+          "200": {
+            "description": "Lista retornada com sucesso (pode estar vazia)",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListAlunoVinculadoResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Nao autenticado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListAlunoVinculadoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/livros": {
+      "get": {
+        "tags": [
+          "Livros"
+        ],
+        "summary": "Lista ou busca livros pelo autor ou título",
+        "operationId": "listar_1",
+        "parameters": [
+          {
+            "name": "busca",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePageLivroResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/livros/{id}": {
+      "get": {
+        "tags": [
+          "Livros"
+        ],
+        "summary": "Buscar livro por id",
+        "operationId": "buscarPorId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseLivroResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/emprestimos/atual": {
+      "get": {
+        "tags": [
+          "Emprestimos"
+        ],
+        "summary": "Livro atual em leitura",
+        "description": "Retorna a leitura em andamento do aluno, ou vazio se nao houver",
+        "operationId": "livroAtual",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseEmprestimoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/verificar-ra/{matricula}": {
+      "get": {
+        "tags": [
+          "Alunos"
+        ],
+        "summary": "Verificar matricula (RA)",
+        "description": "Endpoint publico que verifica se a matricula existe e se o aluno ja esta vinculado a um responsavel",
+        "operationId": "verificarMatricula",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "description": "Matricula (RA) do aluno",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": 2024001
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aluno encontrado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAlunoResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aluno nao encontrado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAlunoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usuarios/me/alunos/{alunoId}": {
+      "delete": {
+        "tags": [
+          "Usuarios"
+        ],
+        "summary": "Desvincular um aluno",
+        "description": "Remove o vínculo entre o pai/responsável logado e o aluno informado.",
+        "operationId": "desvincularAluno",
+        "parameters": [
+          {
+            "name": "alunoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UpdateUsuarioCommand": {
+        "type": "object",
+        "description": "Dados para atualizacao do perfil do usuario. Email nao e alteravel por este endpoint",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Novo nome do usuario",
+            "example": "Joao da Silva",
+            "maxLength": 2147483647,
+            "minLength": 2
+          },
+          "telefone": {
+            "type": "string",
+            "description": "Telefone de contato. Apenas digitos, ate 20 caracteres",
+            "example": 11987654321,
+            "pattern": "^[0-9+\\-()\\s]{8,20}$"
+          },
+          "idAvatar": {
+            "type": "string",
+            "description": "Novo ID do avatar",
+            "example": "avatar_03"
+          }
+        }
+      },
+      "ApiResponseUsuarioResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UsuarioResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "UsuarioResponse": {
+        "type": "object",
+        "description": "Dados do usuario (pai)",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID do usuario"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome completo"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email"
+          },
+          "telefone": {
+            "type": "string",
+            "description": "Telefone de contato"
+          },
+          "dtRegistro": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Data de registro"
+          },
+          "idAvatar": {
+            "type": "string",
+            "description": "ID do avatar"
+          },
+          "matriculasAlunos": {
+            "type": "array",
+            "description": "Matriculas dos alunos vinculados",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateMetaCommand": {
+        "type": "object",
+        "description": "Dados para atualizar uma meta existente (tipo e aluno nao podem mudar)",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "description": "Novo titulo",
+            "maxLength": 150,
+            "minLength": 0
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Nova descricao",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "valorAlvo": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Novo valor alvo",
+            "minimum": 1
+          },
+          "filtroValor": {
+            "type": "string",
+            "description": "Novo filtro (para metas por palavra-chave)"
+          },
+          "dataInicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Nova data de inicio"
+          },
+          "dataFim": {
+            "type": "string",
+            "format": "date",
+            "description": "Nova data de fim"
+          }
+        }
+      },
+      "ApiResponseMetaResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MetaResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "MetaResponse": {
+        "type": "object",
+        "description": "Representacao de uma meta",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "alunoMatricula": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "LIVROS_LIDOS",
+              "LIVROS_COM_PALAVRA_CHAVE",
+              "CUSTOM"
+            ]
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "tipoValidacao": {
+            "type": "string",
+            "enum": [
+              "BOOLEAN",
+              "PERCENTUAL"
+            ]
+          },
+          "valorAlvo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "valorAtual": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "percentual": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "filtroValor": {
+            "type": "string"
+          },
+          "dataInicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataFim": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ATIVA",
+              "CONCLUIDA",
+              "ARQUIVADA"
+            ]
+          },
+          "concluidaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "criadaEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChangePasswordCommand": {
+        "type": "object",
+        "description": "Dados para alteracao de senha. Requer a senha atual",
+        "properties": {
+          "senhaAtual": {
+            "type": "string",
+            "description": "Senha atual do usuario",
+            "minLength": 1
+          },
+          "novaSenha": {
+            "type": "string",
+            "description": "Nova senha",
+            "example": "novaSenhaSegura123",
+            "maxLength": 2147483647,
+            "minLength": 8
+          }
+        }
+      },
+      "AlunoResponse": {
+        "type": "object",
+        "description": "Dados publicos do aluno para verificacao de RA",
+        "properties": {
+          "matricula": {
+            "type": "string",
+            "description": "Matricula (RA) do aluno"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome do aluno"
+          },
+          "serie": {
+            "type": "string",
+            "description": "Serie/turma do aluno"
+          },
+          "vinculado": {
+            "type": "boolean",
+            "description": "Indica se o aluno ja esta vinculado a um responsavel"
+          }
+        }
+      },
+      "ApiResponseAlunoResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AlunoResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "RegisterCommand": {
+        "type": "object",
+        "description": "Dados para registro de novo usuario (pai)",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome completo do usuario",
+            "example": "Joao Silva",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Email do usuario",
+            "example": "joao@email.com",
+            "minLength": 1
+          },
+          "senha": {
+            "type": "string",
+            "description": "Senha do usuario",
+            "example": "senhaSegura123",
+            "maxLength": 2147483647,
+            "minLength": 6
+          },
+          "matriculaAluno": {
+            "type": "string",
+            "description": "Matricula (RA) do aluno a ser vinculado",
+            "example": 2024001,
+            "minLength": 1
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "object",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "ApiResponseAuthResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AuthResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "description": "Resposta de autenticacao contendo tokens JWT",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "Token de acesso JWT"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "Token de renovacao"
+          },
+          "tokenType": {
+            "type": "string",
+            "description": "Tipo do token",
+            "example": "Bearer"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID do usuario autenticado"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome do usuario autenticado"
+          }
+        }
+      },
+      "RefreshTokenCommand": {
+        "type": "object",
+        "description": "Requisicao de renovacao de token",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Refresh token atual",
+            "minLength": 1
+          }
+        }
+      },
+      "ApiResponseVoid": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "object",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "LoginCommand": {
+        "type": "object",
+        "description": "Credenciais de login",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email do usuario",
+            "example": "joao@email.com",
+            "minLength": 1
+          },
+          "senha": {
+            "type": "string",
+            "description": "Senha do usuario",
+            "example": "senhaSegura123",
+            "minLength": 1
+          }
+        }
+      },
+      "CreateMetaCommand": {
+        "type": "object",
+        "description": "Dados para criar uma nova meta de leitura",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "description": "Tipo da meta",
+            "enum": [
+              "LIVROS_LIDOS",
+              "LIVROS_COM_PALAVRA_CHAVE",
+              "CUSTOM"
+            ],
+            "example": "LIVROS_LIDOS"
+          },
+          "titulo": {
+            "type": "string",
+            "description": "Titulo da meta",
+            "example": "Ler 4 livros no mes",
+            "maxLength": 150,
+            "minLength": 0
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descricao detalhada",
+            "example": "Incentivar leitura diaria",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "tipoValidacao": {
+            "type": "string",
+            "description": "Forma de validacao",
+            "enum": [
+              "BOOLEAN",
+              "PERCENTUAL"
+            ],
+            "example": "PERCENTUAL"
+          },
+          "valorAlvo": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Valor alvo. Para BOOLEAN deve ser 1",
+            "example": 4,
+            "minimum": 1
+          },
+          "filtroValor": {
+            "type": "string",
+            "description": "Filtro para metas por palavra-chave no titulo do livro",
+            "example": "fantasia"
+          },
+          "dataInicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Data de inicio da meta",
+            "example": "2026-04-01"
+          },
+          "dataFim": {
+            "type": "string",
+            "format": "date",
+            "description": "Data de fim da meta",
+            "example": "2026-04-30"
+          }
+        },
+        "required": [
+          "dataFim",
+          "dataInicio",
+          "tipo",
+          "tipoValidacao"
+        ]
+      },
+      "CreateEmprestimoCommand": {
+        "type": "object",
+        "description": "Dados para registrar uma nova leitura (emprestimo) de um aluno vinculado",
+        "properties": {
+          "livroId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id do livro ja existente no acervo",
+            "example": 1
+          },
+          "dataEmprestimo": {
+            "type": "string",
+            "format": "date",
+            "description": "Data de inicio da leitura. Se nao informada, usa a data atual",
+            "example": "2026-04-21"
+          },
+          "dataDevolucaoPrevista": {
+            "type": "string",
+            "format": "date",
+            "description": "Data prevista de devolucao. Se nao informada, assume 15 dias apos dataEmprestimo",
+            "example": "2026-05-06"
+          }
+        },
+        "required": [
+          "livroId"
+        ]
+      },
+      "ApiResponseEmprestimoResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/EmprestimoResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "EmprestimoResponse": {
+        "type": "object",
+        "description": "Representacao de uma leitura (emprestimo) do aluno",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id do emprestimo"
+          },
+          "alunoMatricula": {
+            "type": "string",
+            "description": "Matricula do aluno"
+          },
+          "alunoNome": {
+            "type": "string",
+            "description": "Nome do aluno"
+          },
+          "livroId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id do livro"
+          },
+          "livroTitulo": {
+            "type": "string",
+            "description": "Titulo do livro"
+          },
+          "dataEmprestimo": {
+            "type": "string",
+            "format": "date",
+            "description": "Data em que a leitura comecou"
+          },
+          "dataDevolucaoPrevista": {
+            "type": "string",
+            "format": "date",
+            "description": "Data prevista de devolucao"
+          },
+          "dataDevolucaoEfetiva": {
+            "type": "string",
+            "format": "date",
+            "description": "Data efetiva de devolucao/conclusao. Nulo quando ainda em leitura"
+          },
+          "diasAtrasados": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Dias em atraso na data atual"
+          },
+          "status": {
+            "type": "string",
+            "description": "Situacao da leitura",
+            "enum": [
+              "ATIVO",
+              "FINALIZADO",
+              "ATRASADO",
+              "ARQUIVADO"
+            ]
+          }
+        }
+      },
+      "AtualizarProgressoCommand": {
+        "type": "object",
+        "description": "Atualizacao manual de progresso de uma meta",
+        "properties": {
+          "valorAtual": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Novo valor atual (absoluto). Para BOOLEAN use 0 ou 1",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "valorAtual"
+        ]
+      },
+      "AlunoVinculadoResponse": {
+        "type": "object",
+        "description": "Resumo de um aluno vinculado ao responsavel",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID do aluno"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome do aluno"
+          },
+          "matricula": {
+            "type": "string",
+            "description": "Matricula (RA)"
+          },
+          "turma": {
+            "type": "string",
+            "description": "Serie/turma"
+          },
+          "qtdLivrosLidos": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Quantidade de livros ja lidos"
+          },
+          "livroAtual": {
+            "type": "string",
+            "description": "Titulo do livro em leitura no momento. Nulo se nao houver leitura em andamento"
+          }
+        }
+      },
+      "ApiResponseListAlunoVinculadoResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "array",
+            "description": "Dados retornados pela operacao",
+            "items": {
+              "$ref": "#/components/schemas/AlunoVinculadoResponse"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "Pageable": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponsePageLivroResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageLivroResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "LivroResponse": {
+        "type": "object",
+        "description": "Representacao de um livro",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "sinopse": {
+            "type": "string"
+          },
+          "categoria": {
+            "type": "string"
+          },
+          "isbn": {
+            "type": "string"
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageLivroResponse": {
+        "type": "object",
+        "properties": {
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LivroResponse"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortObject"
+          },
+          "numberOfElements": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageable": {
+            "$ref": "#/components/schemas/PageableObject"
+          },
+          "empty": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageableObject": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/SortObject"
+          },
+          "paged": {
+            "type": "boolean"
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unpaged": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SortObject": {
+        "type": "object",
+        "properties": {
+          "empty": {
+            "type": "boolean"
+          },
+          "sorted": {
+            "type": "boolean"
+          },
+          "unsorted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseLivroResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LivroResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "ApiResponseListMetaResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "array",
+            "description": "Dados retornados pela operacao",
+            "items": {
+              "$ref": "#/components/schemas/MetaResponse"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "ApiResponseListEmprestimoResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "array",
+            "description": "Dados retornados pela operacao",
+            "items": {
+              "$ref": "#/components/schemas/EmprestimoResponse"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Bearer Authentication": {
+        "type": "http",
+        "description": "Insira o token JWT",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

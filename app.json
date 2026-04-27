@@ -3,6 +3,7 @@
     "name": "lottus-app",
     "slug": "lottus-app",
     "version": "1.0.0",
+    "scheme": "lottus",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
@@ -11,7 +12,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "O Lottus usa a câmera para escanear o código de barras dos livros e registrar leituras."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +31,17 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Lottus usa a câmera para escanear o código de barras dos livros e registrar leituras."
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "extra": {
+      "apiUrl": "http://localhost:8080"
+    }
   }
 }

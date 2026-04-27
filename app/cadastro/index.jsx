@@ -15,46 +15,85 @@ import { Asset } from 'expo-asset';
 import { SvgUri } from 'react-native-svg';
 import { Link, useRouter } from 'expo-router';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+import { useAuth } from '../../src/context/AuthContext';
+import { ApiError } from '../../src/api/client';
+import alunoService from '../../src/services/alunoService';
 
 export default function CadastroScreen() {
   const router = useRouter();
+  const { register } = useAuth();
   const logoSource = require('../../assets/logo_lottus.svg');
   const logoUri = Asset.fromModule(logoSource).uri;
+
   const [form, setForm] = useState({
     nome: '',
     email: '',
     senha: '',
     matriculaAluno: '',
   });
+  const [alunoInfo, setAlunoInfo] = useState(null); // resultado do verificar-ra
+  const [verifying, setVerifying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === 'matriculaAluno') setAlunoInfo(null);
   };
 
   const validate = () => {
-    if (!form.nome.trim() || !form.email.trim() || !form.senha.trim() || !form.matriculaAluno.trim()) {
+    if (
+      !form.nome.trim() ||
+      !form.email.trim() ||
+      !form.senha.trim() ||
+      !form.matriculaAluno.trim()
+    ) {
       return 'Preencha todos os campos para continuar.';
     }
-
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       return 'Informe um e-mail valido.';
     }
-
     if (form.senha.length < 8) {
       return 'A senha precisa ter no minimo 8 caracteres.';
     }
-
     return '';
+  };
+
+  const handleVerificarMatricula = async () => {
+    if (!form.matriculaAluno.trim()) {
+      setError('Informe a matricula para verificar.');
+      return;
+    }
+    setError('');
+    setVerifying(true);
+    try {
+      const aluno = await alunoService.verificarMatricula(form.matriculaAluno.trim());
+      setAlunoInfo(aluno);
+      if (aluno?.vinculado) {
+        setError('Este aluno ja possui um responsavel vinculado.');
+      }
+    } catch (err) {
+      setAlunoInfo(null);
+      const msg =
+        err instanceof ApiError && err.status === 404
+          ? 'Matricula nao encontrada. Confira com a escola.'
+          : err instanceof ApiError
+          ? err.message
+          : 'Nao foi possivel verificar a matricula.';
+      setError(msg);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleCadastro = async () => {
     const validationError = validate();
-
     if (validationError) {
       setError(validationError);
+      return;
+    }
+    if (alunoInfo?.vinculado) {
+      setError('Este aluno ja possui um responsavel vinculado.');
       return;
     }
 
@@ -62,28 +101,22 @@ export default function CadastroScreen() {
     setError('');
 
     try {
-      const payload = {
+      await register({
         nome: form.nome.trim(),
         email: form.email.trim().toLowerCase(),
         senha: form.senha,
         matriculaAluno: form.matriculaAluno.trim(),
-      };
-
-      const response = await fetch(`${API_BASE_URL}/auth/cadastro`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error('Nao foi possivel concluir o cadastro.');
+      router.replace('/visao-geral');
+    } catch (err) {
+      let message = 'Erro ao cadastrar. Tente novamente em instantes.';
+      if (err instanceof ApiError) {
+        if (err.status === 404) message = 'Matricula nao encontrada.';
+        else if (err.status === 409) message = 'E-mail ja cadastrado ou aluno ja vinculado.';
+        else if (err.status === 400) message = err.message || 'Dados invalidos.';
+        else if (err.message) message = err.message;
       }
-
-      router.replace('/login');
-    } catch (requestError) {
-      setError(requestError.message || 'Erro ao cadastrar. Tente novamente em instantes.');
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -116,6 +149,7 @@ export default function CadastroScreen() {
               placeholder="Seu nome"
               placeholderTextColor="#B8B2A8"
               style={styles.input}
+              editable={!loading}
             />
 
             <Text style={styles.label}>E-mail</Text>
@@ -128,6 +162,7 @@ export default function CadastroScreen() {
               placeholder="seu_email@email.com"
               placeholderTextColor="#B8B2A8"
               style={styles.input}
+              editable={!loading}
             />
 
             <Text style={styles.label}>Senha</Text>
@@ -140,18 +175,43 @@ export default function CadastroScreen() {
               placeholder="senhaSegura123"
               placeholderTextColor="#B8B2A8"
               style={styles.input}
+              editable={!loading}
             />
 
             <Text style={styles.label}>Matricula do aluno</Text>
-            <TextInput
-              value={form.matriculaAluno}
-              onChangeText={(value) => updateField('matriculaAluno', value)}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="00000000"
-              placeholderTextColor="#B8B2A8"
-              style={styles.input}
-            />
+            <View style={styles.matriculaRow}>
+              <TextInput
+                value={form.matriculaAluno}
+                onChangeText={(value) => updateField('matriculaAluno', value)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="00000000"
+                placeholderTextColor="#B8B2A8"
+                style={[styles.input, styles.inputFlex]}
+                editable={!loading && !verifying}
+              />
+              <TouchableOpacity
+                style={[styles.verifyBtn, (verifying || !form.matriculaAluno) && styles.verifyBtnDisabled]}
+                onPress={handleVerificarMatricula}
+                disabled={verifying || !form.matriculaAluno}
+                activeOpacity={0.85}
+              >
+                {verifying ? (
+                  <ActivityIndicator color="#0292B7" />
+                ) : (
+                  <Text style={styles.verifyText}>Verificar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {alunoInfo && !alunoInfo.vinculado && (
+              <View style={styles.alunoInfoOk}>
+                <Text style={styles.alunoInfoText}>
+                  Aluno encontrado: <Text style={{ fontFamily: 'KoHo_600SemiBold' }}>{alunoInfo.nome}</Text>
+                  {alunoInfo.serie ? ` - ${alunoInfo.serie}` : ''}
+                </Text>
+              </View>
+            )}
 
             {!!error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -249,6 +309,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1A1A1A',
     backgroundColor: '#FFFEFB',
+  },
+  matriculaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  inputFlex: { flex: 1 },
+  verifyBtn: {
+    height: 48,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0292B7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  verifyBtnDisabled: { opacity: 0.5 },
+  verifyText: { fontFamily: 'KoHo_600SemiBold', fontSize: 13, color: '#0292B7' },
+  alunoInfoOk: {
+    backgroundColor: '#E6F6F1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  alunoInfoText: {
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 13,
+    color: '#2E7D4F',
   },
   errorText: {
     fontFamily: 'KoHo_500Medium',

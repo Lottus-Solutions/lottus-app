@@ -14,17 +14,22 @@ import { Asset } from 'expo-asset';
 import { SvgUri } from 'react-native-svg';
 import { Link, useRouter } from 'expo-router';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+import { useAuth } from '../../src/context/AuthContext';
+import { ApiError } from '../../src/api/client';
+import {
+  loginWithGoogle,
+  GOOGLE_LOGIN_DISPONIVEL,
+} from '../../src/services/oauth2Service';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, loginWithTokens } = useAuth();
   const logoSource = require('../../assets/logo_lottus.svg');
   const logoUri = Asset.fromModule(logoSource).uri;
-  const [form, setForm] = useState({
-    email: '',
-    senha: '',
-  });
+
+  const [form, setForm] = useState({ email: '', senha: '' });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
   const updateField = (field, value) => {
@@ -35,17 +40,36 @@ export default function LoginScreen() {
     if (!form.email.trim() || !form.senha.trim()) {
       return 'Preencha e-mail e senha para continuar.';
     }
-
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       return 'Informe um e-mail valido.';
     }
-
     return '';
+  };
+
+  const handleGoogleLogin = async () => {
+    if (googleLoading) return;
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const tokens = await loginWithGoogle();
+      if (!tokens) {
+        // Usuário cancelou — não trata como erro.
+        return;
+      }
+      await loginWithTokens(tokens);
+      router.replace('/visao-geral');
+    } catch (err) {
+      const msg =
+        err?.message ||
+        'Não foi possível concluir o login com Google. Tente novamente.';
+      setError(msg);
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleLogin = async () => {
     const validationError = validate();
-
     if (validationError) {
       setError(validationError);
       return;
@@ -55,26 +79,20 @@ export default function LoginScreen() {
     setError('');
 
     try {
-      const payload = {
+      await login({
         email: form.email.trim().toLowerCase(),
         senha: form.senha,
-      };
-
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error('Falha no login. Verifique suas credenciais.');
-      }
-
       router.replace('/visao-geral');
     } catch (requestError) {
-      setError(requestError.message || 'Nao foi possivel realizar o login agora.');
+      const message =
+        requestError instanceof ApiError
+          ? requestError.message ||
+            (requestError.status === 401
+              ? 'Credenciais invalidas. Verifique seu e-mail e senha.'
+              : 'Falha no login. Tente novamente em instantes.')
+          : 'Nao foi possivel conectar ao servidor. Verifique sua rede.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -104,6 +122,7 @@ export default function LoginScreen() {
               placeholder="seu_email@email.com"
               placeholderTextColor="#B8B2A8"
               style={styles.input}
+              editable={!loading}
             />
 
             <Text style={styles.label}>Senha</Text>
@@ -116,6 +135,7 @@ export default function LoginScreen() {
               placeholder="senhaSegura123"
               placeholderTextColor="#B8B2A8"
               style={styles.input}
+              editable={!loading}
             />
 
             {!!error && <Text style={styles.errorText}>{error}</Text>}
@@ -124,7 +144,7 @@ export default function LoginScreen() {
               onPress={handleLogin}
               style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
               activeOpacity={0.85}
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -132,6 +152,37 @@ export default function LoginScreen() {
                 <Text style={styles.submitBtnText}>Entrar</Text>
               )}
             </TouchableOpacity>
+
+            {GOOGLE_LOGIN_DISPONIVEL ? (
+              <>
+                <View style={styles.dividerWrap}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>ou</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleGoogleLogin}
+                  style={[
+                    styles.googleBtn,
+                    googleLoading && styles.googleBtnDisabled,
+                  ]}
+                  activeOpacity={0.85}
+                  disabled={loading || googleLoading}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator color="#0292B7" />
+                  ) : (
+                    <View style={styles.googleBtnContent}>
+                      <View style={styles.googleIcon}>
+                        <Text style={styles.googleIconText}>G</Text>
+                      </View>
+                      <Text style={styles.googleBtnText}>Continuar com Google</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
 
           <View style={styles.footerRow}>
@@ -236,6 +287,56 @@ const styles = StyleSheet.create({
     fontFamily: 'KoHo_600SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  dividerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E4DFD5' },
+  dividerText: {
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 12,
+    color: '#999999',
+    textTransform: 'uppercase',
+  },
+  googleBtn: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#0292B7',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleBtnDisabled: { opacity: 0.6 },
+  googleBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  googleIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#0292B7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleIconText: {
+    fontFamily: 'KoHo_700Bold',
+    fontSize: 13,
+    color: '#0292B7',
+    lineHeight: 16,
+  },
+  googleBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 15,
+    color: '#0292B7',
   },
   footerRow: {
     marginTop: 18,
