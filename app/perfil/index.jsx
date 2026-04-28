@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -11,12 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Link2, Plus, Unlink } from 'lucide-react-native';
 
 import { ApiError } from '../../src/api/client';
 import { useAuth } from '../../src/context/AuthContext';
 import { useDataSync } from '../../src/context/DataSyncContext';
-import alunoService from '../../src/services/alunoService';
+import assistenteService from '../../src/services/assistenteService';
 import usuarioService from '../../src/services/usuarioService';
 
 function digitsOnly(value) {
@@ -34,6 +32,45 @@ function formatPhone(raw) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 }
 
+function formatAiResult(result) {
+  if (result == null) return '';
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result)) {
+    return result
+      .map((item) => {
+        if (item == null) return '';
+        if (typeof item === 'string') return item;
+        if (typeof item !== 'object') return String(item);
+
+        return (
+          item.titulo ||
+          item.livroTitulo ||
+          item.nome ||
+          item.texto ||
+          item.descricao ||
+          JSON.stringify(item)
+        );
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (typeof result !== 'object') return String(result);
+
+  const keys = ['resumo', 'perfil', 'nivel', 'pontuacao', 'descricao', 'observacao', 'texto', 'message'];
+  const lines = keys
+    .map((key) => {
+      const value = result[key];
+      if (value == null || value === '') return null;
+      if (Array.isArray(value)) return `${key}: ${value.join(', ')}`;
+      if (typeof value === 'object') return `${key}: ${JSON.stringify(value)}`;
+      return `${key}: ${value}`;
+    })
+    .filter(Boolean);
+
+  return lines.length ? lines.join('\n') : JSON.stringify(result, null, 2);
+}
+
 export default function PerfilScreen() {
   const { user, matricula, setMatricula, refreshProfile } = useAuth();
   const { invalidate } = useDataSync();
@@ -43,6 +80,11 @@ export default function PerfilScreen() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+
+  const [recalculatingPerfil, setRecalculatingPerfil] = useState(false);
+  const [perfilLeituraResult, setPerfilLeituraResult] = useState(null);
+  const [perfilLeituraMessage, setPerfilLeituraMessage] = useState('');
+  const [perfilLeituraError, setPerfilLeituraError] = useState('');
 
   const [alunos, setAlunos] = useState([]);
   const [loadingAlunos, setLoadingAlunos] = useState(true);
@@ -67,6 +109,16 @@ export default function PerfilScreen() {
       digitsOnly(telefone) !== currentTelefone
     );
   }, [nome, telefone, user?.nome, user?.telefone]);
+
+  const alunoSelecionado = useMemo(() => {
+    if (!Array.isArray(alunos) || alunos.length === 0) return null;
+
+    const alunoDaMatricula = matricula
+      ? alunos.find((aluno) => String(aluno?.matricula) === String(matricula))
+      : null;
+
+    return alunoDaMatricula || alunos[0] || null;
+  }, [alunos, matricula]);
 
   const loadAlunos = useCallback(async () => {
     setAlunosError('');
@@ -127,6 +179,35 @@ export default function PerfilScreen() {
       setProfileError(msg);
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function handleRecalcularPerfilLeitura() {
+    if (recalculatingPerfil || !alunoSelecionado) return;
+
+    const alunoId = Number(alunoSelecionado.id);
+    if (!Number.isInteger(alunoId)) {
+      setPerfilLeituraError('Nenhum aluno valido foi encontrado para recalcular o perfil.');
+      return;
+    }
+
+    setRecalculatingPerfil(true);
+    setPerfilLeituraError('');
+    setPerfilLeituraMessage('');
+    setPerfilLeituraResult(null);
+
+    try {
+      const result = await assistenteService.recalcularPerfilLeitura(alunoId);
+      setPerfilLeituraResult(result);
+      setPerfilLeituraMessage('Perfil de leitura recalculado com sucesso.');
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message || 'Nao foi possivel recalcular o perfil de leitura.'
+          : 'Nao foi possivel recalcular o perfil de leitura.';
+      setPerfilLeituraError(msg);
+    } finally {
+      setRecalculatingPerfil(false);
     }
   }
 
@@ -200,6 +281,35 @@ export default function PerfilScreen() {
               <Text style={styles.submitBtnText}>Salvar alteracoes</Text>
             )}
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Perfil de leitura</Text>
+
+          <TouchableOpacity
+            onPress={handleRecalcularPerfilLeitura}
+            style={[
+              styles.aiBtn,
+              (recalculatingPerfil || !alunoSelecionado) && styles.aiBtnDisabled,
+            ]}
+            activeOpacity={0.85}
+            disabled={recalculatingPerfil || !alunoSelecionado}
+          >
+            {recalculatingPerfil ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.aiBtnText}>Recalcular Perfil de Leitura</Text>
+            )}
+          </TouchableOpacity>
+
+          {!!perfilLeituraError && <Text style={styles.errorText}>{perfilLeituraError}</Text>}
+          {!!perfilLeituraMessage && <Text style={styles.successText}>{perfilLeituraMessage}</Text>}
+
+          {perfilLeituraResult ? (
+            <View style={styles.aiResultBox}>
+              <Text style={styles.aiResultText}>{formatAiResult(perfilLeituraResult)}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -304,6 +414,41 @@ const styles = StyleSheet.create({
     fontFamily: 'KoHo_600SemiBold',
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  helperText: {
+    marginBottom: 12,
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 12,
+    color: '#6A6A6A',
+  },
+  aiBtn: {
+    borderRadius: 12,
+    backgroundColor: '#036C87',
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBtnDisabled: {
+    opacity: 0.6,
+  },
+  aiBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  aiResultBox: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D8ECF2',
+    backgroundColor: '#F5FAFC',
+    padding: 12,
+  },
+  aiResultText: {
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#1A1A1A',
   },
   errorText: {
     marginBottom: 8,

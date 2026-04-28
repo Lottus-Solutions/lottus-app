@@ -14,7 +14,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "O Lottus usa a cÃ¢mera para escanear o cÃ³digo de barras dos livros e registrar leituras."
+        "NSCameraUsageDescription": "O Lottus usa a câmera para escanear o código de barras dos livros e registrar leituras."
       }
     },
     "android": {
@@ -35,10 +35,18 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "O Lottus usa a cÃ¢mera para escanear o cÃ³digo de barras dos livros e registrar leituras."
+          "cameraPermission": "O Lottus usa a câmera para escanear o código de barras dos livros e registrar leituras."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "O Lottus usa o microfone para gravar suas perguntas de audio ao assistente.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "http://localhost:8080"
