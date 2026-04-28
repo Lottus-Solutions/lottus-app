@@ -50,6 +50,16 @@ function formatRecommendationItem(item) {
   return lines.join('\n');
 }
 
+function normalizeEmprestimoAtual(data) {
+  if (!data || typeof data !== 'object') return null;
+
+  // O backend pode responder com um objeto vazio quando não há livro atual.
+  // Nesse caso, não devemos tratar isso como leitura em andamento.
+  if (!data.id || !data.livroTitulo) return null;
+
+  return data;
+}
+
 function CurrentBookCard({ emprestimo, onFinalize, finalizing }) {
   const dueDays = diasAteData(emprestimo.dataDevolucaoPrevista);
   const dueLabel =
@@ -120,7 +130,7 @@ export default function LeiturasScreen() {
         emprestimoService.getEmprestimoAtual(matricula).catch(() => null),
         emprestimoService.listEmprestimos(matricula).catch(() => []),
       ]);
-      setAtual(atualData || null);
+      setAtual(normalizeEmprestimoAtual(atualData));
       const finalizados = (Array.isArray(historico) ? historico : [])
         .filter((e) => e.status === 'FINALIZADO')
         // Mais recente no topo: ordena por dataDevolucaoEfetiva desc, fallback por id desc.
@@ -309,7 +319,7 @@ export default function LeiturasScreen() {
               />
             ) : (
               <View style={styles.card}>
-                <Text style={styles.emptyInline}>Nenhuma leitura em andamento.</Text>
+                <Text style={styles.emptyInline}>Sem livro atual</Text>
               </View>
             )}
 

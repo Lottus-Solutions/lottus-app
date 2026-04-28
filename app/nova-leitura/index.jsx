@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
   Alert,
   Platform,
@@ -40,6 +40,7 @@ try {
 }
 
 const SCANNER_DISPONIVEL = !!CameraView && Platform.OS !== 'web';
+const LIVROS_POR_PAGINA = 20;
 
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -59,7 +60,9 @@ function ScannerModal({ visible, onClose, onDetect }) {
     ? useCameraPermissions()
     : [{ granted: false }, async () => ({ granted: false })];
   const [scanned, setScanned] = useState(false);
+  const [ocrRunning, setOcrRunning] = useState(false);
   const lastDataRef = useRef(null);
+  const cameraRef = useRef(null);
 
   // Reseta o estado de "escaneado" sempre que reabrir.
   useEffect(() => {
@@ -76,6 +79,35 @@ function ScannerModal({ visible, onClose, onDetect }) {
     lastDataRef.current = data;
     setScanned(true);
     onDetect({ data, type });
+  };
+
+  const handleOcrCapture = async () => {
+    if (!cameraRef.current || ocrRunning) return;
+
+    setOcrRunning(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.55,
+        skipProcessing: true,
+      });
+      const resultado = await livroService.extrairIsbnViaOcr(photo?.uri);
+
+      if (!resultado?.isbn) {
+        Alert.alert(
+          'OCR sem ISBN',
+          'A imagem foi lida, mas não encontramos um ISBN válido. Tente aproximar a capa ou a contracapa.'
+        );
+        return;
+      }
+
+      lastDataRef.current = resultado.isbn;
+      setScanned(true);
+      onDetect({ data: resultado.isbn, type: 'ocr', ocrText: resultado.texto });
+    } catch (error) {
+      Alert.alert('OCR', 'Falha ao reconhecer o texto da imagem.');
+    } finally {
+      setOcrRunning(false);
+    }
   };
 
   const showRequest = visible && (!permission || !permission.granted);
@@ -118,6 +150,7 @@ function ScannerModal({ visible, onClose, onDetect }) {
         ) : visible && CameraView ? (
           <View style={scannerStyles.cameraWrap}>
             <CameraView
+              ref={cameraRef}
               style={scannerStyles.camera}
               facing="back"
               barcodeScannerSettings={{
@@ -134,9 +167,21 @@ function ScannerModal({ visible, onClose, onDetect }) {
             </View>
             <View style={scannerStyles.hintBox}>
               <Text style={scannerStyles.hintText}>
-                Aponte para o código de barras na contracapa do livro
+                Aponte para o código de barras ou capture a capa para OCR
               </Text>
             </View>
+            <TouchableOpacity
+              style={[scannerStyles.ocrBtn, ocrRunning && scannerStyles.ocrBtnDisabled]}
+              activeOpacity={0.85}
+              onPress={handleOcrCapture}
+              disabled={ocrRunning}
+            >
+              {ocrRunning ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={scannerStyles.ocrBtnText}>Capturar e reconhecer ISBN</Text>
+              )}
+            </TouchableOpacity>
           </View>
         ) : null}
       </View>
@@ -152,46 +197,83 @@ export default function NovaLeituraScreen() {
   const router = useRouter();
   const { matricula } = useAuth();
   const { invalidate } = useDataSync();
+  const requestIdRef = useRef(0);
 
   const [busca, setBusca] = useState('');
   const debouncedBusca = useDebounce(busca, 400);
   const [livros, setLivros] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [paginaAtual, setPaginaAtual] = useState(0);
+  const [temMais, setTemMais] = useState(true);
   const [error, setError] = useState(null);
   const [registrando, setRegistrando] = useState(null); // id do livro em registro
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerStatus, setScannerStatus] = useState(null); // 'searching' | 'notfound' | null
+  const [isbnDetectado, setIsbnDetectado] = useState(null);
+  const [livroGoogle, setLivroGoogle] = useState(null);
+  const [ocrResumo, setOcrResumo] = useState(null);
+
+  const carregarPagina = async ({ page, replace = false, buscaTerm }) => {
+    const requestId = ++requestIdRef.current;
+    if (replace) setLoading(true);
+    else setLoadingMore(true);
+
+    setError(null);
+
+    try {
+      const result = await livroService.listLivros({
+        busca: buscaTerm,
+        page,
+        size: LIVROS_POR_PAGINA,
+        sort: 'titulo,asc',
+      });
+
+      if (requestId !== requestIdRef.current) return;
+
+      const content = result?.content ?? [];
+      setLivros((current) => (replace ? content : [...current, ...content]));
+      setPaginaAtual(page);
+      setTemMais(Boolean(result && !result.last && content.length > 0));
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+
+      const msg =
+        err instanceof ApiError
+          ? err.message || 'Falha ao buscar livros.'
+          : 'Erro de conexão.';
+      setError(msg);
+      if (replace) setLivros([]);
+      setTemMais(false);
+    } finally {
+      if (requestId !== requestIdRef.current) return;
+      if (replace) setLoading(false);
+      else setLoadingMore(false);
+    }
+  };
 
   /* Listagem por busca textual */
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await livroService.listLivros({
-          busca: debouncedBusca?.trim() || undefined,
-          page: 0,
-          size: 20,
-        });
-        if (cancelled) return;
-        setLivros(result?.content ?? []);
-      } catch (err) {
-        if (cancelled) return;
-        const msg =
-          err instanceof ApiError
-            ? err.message || 'Falha ao buscar livros.'
-            : 'Erro de conexão.';
-        setError(msg);
-        setLivros([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    const buscaTerm = debouncedBusca?.trim() || undefined;
+    setPaginaAtual(0);
+    setTemMais(true);
+    setLivros([]);
+    carregarPagina({ page: 0, replace: true, buscaTerm });
     return () => {
-      cancelled = true;
+      requestIdRef.current += 1;
     };
   }, [debouncedBusca]);
+
+  const carregarMais = async () => {
+    if (loading || loadingMore || !temMais) return;
+
+    const buscaTerm = debouncedBusca?.trim() || undefined;
+    await carregarPagina({
+      page: paginaAtual + 1,
+      replace: false,
+      buscaTerm,
+    });
+  };
 
   const handleRegistrar = async (livro) => {
     if (!matricula) {
@@ -222,22 +304,57 @@ export default function NovaLeituraScreen() {
   };
 
   /* Callback quando o scanner detecta um código */
-  const handleScannerDetect = async ({ data }) => {
+  const handleScannerDetect = async ({ data, type, ocrText }) => {
+    const isbn = livroService.normalizarIsbn(data);
+    if (!isbn) {
+      setScannerStatus('notfound');
+      setScannerOpen(false);
+      if (Platform.OS !== 'web') Alert.alert('Scanner', 'Não foi possível identificar um ISBN válido.');
+      return;
+    }
+
+    setIsbnDetectado(isbn);
+    setLivroGoogle(null);
+  setOcrResumo(type === 'ocr' ? (ocrText || 'Texto reconhecido pela câmera.') : null);
     setScannerStatus('searching');
     try {
-      const livro = await livroService.buscarPorIsbn(data);
+      const livro = await livroService.buscarPorIsbn(isbn);
       if (!livro) {
-        setScannerStatus('notfound');
+        setScannerStatus('searching');
+        const googleLivro = await livroService.buscarNoGooglePorIsbn(isbn);
+
+        if (!googleLivro) {
+          setScannerStatus('notfound');
+          if (Platform.OS !== 'web') {
+            Alert.alert(
+              'ISBN identificado',
+              `ISBN ${isbn} foi lido, mas não encontramos o livro no acervo nem no Google Books.`,
+              [{ text: 'OK', onPress: () => setScannerOpen(false) }]
+            );
+          } else {
+            setScannerOpen(false);
+          }
+          setScannerStatus(null);
+          return;
+        }
+
+        setLivroGoogle(googleLivro);
+        setScannerOpen(false);
+        setScannerStatus(null);
         if (Platform.OS !== 'web') {
           Alert.alert(
-            'Livro não encontrado',
-            `Nenhum livro com ISBN ${data} foi encontrado no acervo.`,
-            [{ text: 'OK', onPress: () => setScannerOpen(false) }]
+            'ISBN identificado no Google Books',
+            [
+              googleLivro.titulo,
+              googleLivro.autor,
+              googleLivro.editora ? `Editora: ${googleLivro.editora}` : null,
+              `ISBN: ${googleLivro.isbn}`,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            [{ text: 'OK' }]
           );
-        } else {
-          setScannerOpen(false);
         }
-        setScannerStatus(null);
         return;
       }
       // Encontrou: pergunta confirmação antes de registrar.
@@ -266,6 +383,44 @@ export default function NovaLeituraScreen() {
   };
 
   const placeholder = useMemo(() => 'Buscar por título, autor ou ISBN', []);
+
+  const renderFooter = () => {
+    if (loadingMore) {
+      return (
+        <View style={styles.footerLoading}>
+          <ActivityIndicator color="#0292B7" />
+        </View>
+      );
+    }
+
+    if (livros.length === 0) return null;
+
+    if (!temMais) {
+      return <Text style={styles.footerText}>Fim dos resultados</Text>;
+    }
+
+    return (
+      <TouchableOpacity style={styles.loadMoreBtn} activeOpacity={0.85} onPress={carregarMais}>
+        <Text style={styles.loadMoreBtnText}>Carregar mais livros</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator color="#0292B7" />
+        </View>
+      );
+    }
+
+    return (
+      <Text style={styles.empty}>
+        {debouncedBusca ? 'Nenhum livro encontrado.' : 'Nenhum livro disponível.'}
+      </Text>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -310,7 +465,12 @@ export default function NovaLeituraScreen() {
           <TextInput
             style={styles.searchInput}
             value={busca}
-            onChangeText={setBusca}
+            onChangeText={(text) => {
+              setBusca(text);
+              setIsbnDetectado(null);
+              setLivroGoogle(null);
+              setOcrResumo(null);
+            }}
             placeholder={placeholder}
             placeholderTextColor="#B8B2A8"
             autoCapitalize="none"
@@ -318,54 +478,68 @@ export default function NovaLeituraScreen() {
           />
         </View>
 
-        {!!error && <Text style={styles.errorText}>{error}</Text>}
-        {scannerStatus === 'searching' && (
-          <Text style={styles.statusText}>Buscando ISBN no acervo…</Text>
+        {!!isbnDetectado && (
+          <View style={styles.isbnCard}>
+            <Text style={styles.isbnLabel}>ISBN detectado</Text>
+            <Text style={styles.isbnValue}>{isbnDetectado}</Text>
+            {ocrResumo ? (
+              <Text style={styles.isbnOcrText} numberOfLines={3}>
+                OCR: {ocrResumo}
+              </Text>
+            ) : null}
+            {livroGoogle ? (
+              <Text style={styles.isbnGoogleText} numberOfLines={2}>
+                Google Books: {livroGoogle.titulo}
+                {livroGoogle.autor ? ` · ${livroGoogle.autor}` : ''}
+              </Text>
+            ) : null}
+          </View>
         )}
 
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list}>
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator color="#0292B7" />
-            </View>
-          ) : livros.length === 0 ? (
-            <Text style={styles.empty}>
-              {debouncedBusca ? 'Nenhum livro encontrado.' : 'Comece digitando para buscar.'}
-            </Text>
-          ) : (
-            livros.map((livro) => (
-              <View key={livro.id} style={styles.item}>
-                <View style={styles.itemIcon}>
-                  <BookOpen size={18} color="#0292B7" />
-                </View>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemTitle} numberOfLines={1}>
-                    {livro.titulo}
-                  </Text>
-                  <Text style={styles.itemMeta} numberOfLines={1}>
-                    {[livro.autor, livro.categoria].filter(Boolean).join(' · ')}
-                  </Text>
-                  {!!livro.isbn && <Text style={styles.itemIsbn}>ISBN {livro.isbn}</Text>}
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.itemBtn,
-                    registrando === livro.id && styles.itemBtnDisabled,
-                  ]}
-                  onPress={() => handleRegistrar(livro)}
-                  disabled={registrando !== null}
-                  activeOpacity={0.85}
-                >
-                  {registrando === livro.id ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.itemBtnText}>Registrar</Text>
-                  )}
-                </TouchableOpacity>
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
+        {scannerStatus === 'searching' && (
+          <Text style={styles.statusText}>Buscando ISBN no acervo e no Google Books…</Text>
+        )}
+
+        <FlatList
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.list}
+          data={livros}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item: livro }) => (
+            <View style={styles.item}>
+              <View style={styles.itemIcon}>
+                <BookOpen size={18} color="#0292B7" />
               </View>
-            ))
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemTitle} numberOfLines={1}>
+                  {livro.titulo}
+                </Text>
+                <Text style={styles.itemMeta} numberOfLines={1}>
+                  {[livro.autor, livro.categoria].filter(Boolean).join(' · ')}
+                </Text>
+                {!!livro.isbn && <Text style={styles.itemIsbn}>ISBN {livro.isbn}</Text>}
+              </View>
+              <TouchableOpacity
+                style={[styles.itemBtn, registrando === livro.id && styles.itemBtnDisabled]}
+                onPress={() => handleRegistrar(livro)}
+                disabled={registrando !== null}
+                activeOpacity={0.85}
+              >
+                {registrando === livro.id ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.itemBtnText}>Registrar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
-        </ScrollView>
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={carregarMais}
+          onEndReachedThreshold={0.35}
+          keyboardShouldPersistTaps="handled"
+        />
       </KeyboardAvoidingView>
 
       {SCANNER_DISPONIVEL && (
@@ -477,6 +651,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 20,
   },
+  footerLoading: {
+    paddingVertical: 14,
+  },
+  footerText: {
+    fontFamily: 'KoHo_500Medium',
+    fontSize: 12,
+    color: '#999999',
+    textAlign: 'center',
+    paddingVertical: 14,
+  },
+  loadMoreBtn: {
+    marginTop: 4,
+    marginBottom: 4,
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8D1C5',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  loadMoreBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 13,
+    color: '#0292B7',
+  },
   errorText: {
     fontFamily: 'KoHo_500Medium',
     fontSize: 12,
@@ -492,6 +692,41 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
     paddingTop: 8,
+  },
+  isbnCard: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#EDF8FB',
+    borderWidth: 1,
+    borderColor: '#C9E8F0',
+  },
+  isbnLabel: {
+    fontFamily: 'KoHo_500Medium',
+    fontSize: 11,
+    color: '#02708D',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  isbnValue: {
+    fontFamily: 'KoHo_700Bold',
+    fontSize: 14,
+    color: '#1A1A1A',
+    marginTop: 2,
+  },
+  isbnGoogleText: {
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 12,
+    color: '#05718C',
+    marginTop: 4,
+  },
+  isbnOcrText: {
+    fontFamily: 'KoHo_400Regular',
+    fontSize: 12,
+    color: '#4D6B73',
+    marginTop: 4,
   },
   item: {
     backgroundColor: '#FFFFFF',
@@ -571,7 +806,7 @@ const scannerStyles = StyleSheet.create({
   br: { bottom: '30%', right: '12%', borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 8 },
   hintBox: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 24,
     left: 24,
     right: 24,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -584,6 +819,30 @@ const scannerStyles = StyleSheet.create({
     fontSize: 13,
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  ocrBtn: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 92,
+    backgroundColor: '#0292B7',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0292B7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  ocrBtnDisabled: {
+    opacity: 0.7,
+  },
+  ocrBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
   },
   permissionWrap: {
     flex: 1,
