@@ -38,6 +38,10 @@
       "description": "Gerenciamento do perfil do usuario (pai/responsavel)"
     },
     {
+      "name": "Dashboard",
+      "description": "KPIs agregados do aluno vinculado para visao do responsavel"
+    },
+    {
       "name": "Autenticacao",
       "description": "Endpoints de registro, login, refresh e logout"
     }
@@ -999,6 +1003,175 @@
         }
       }
     },
+    "/api/alunos/{matricula}/dashboard/resumo": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Resumo de KPIs do mes",
+        "description": "Retorna em uma unica chamada os indicadores numericos: livros lidos no mes, dias com o livro atual e percentual medio das metas mensais",
+        "operationId": "resumo",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "description": "Matricula do aluno",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumo calculado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseResumoDashboardResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Aluno nao vinculado ao responsavel",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseResumoDashboardResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aluno nao encontrado",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseResumoDashboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/dashboard/generos": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Distribuicao por genero/categoria",
+        "description": "Retorna o percentual de leituras concluidas em cada categoria, ordenado do mais lido para o menos lido",
+        "operationId": "generos",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListGeneroLeituraResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/dashboard/evolucao-mensal": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Evolucao mensal de leituras",
+        "description": "Retorna em uma unica chamada o total de livros lidos por mes nos ultimos N meses (default 12, maximo 24). Inclui meses sem leituras com total=0 para alimentar diretamente o grafico",
+        "operationId": "evolucaoMensal",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "meses",
+            "in": "query",
+            "description": "Quantidade de meses retroativos a considerar (1-24, default 12)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListEvolucaoMensalResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alunos/{matricula}/dashboard/atividades": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Ultimas atividades",
+        "description": "Feed cronologico das ultimas acoes do responsavel relacionadas ao aluno (livro iniciado/concluido, meta criada/concluida). Cada item traz referenciaTipo e referenciaId para o frontend redirecionar",
+        "operationId": "atividades",
+        "parameters": [
+          {
+            "name": "matricula",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Quantidade maxima de eventos (1-50, default 20)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListAtividadeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/alunos/verificar-ra/{matricula}": {
       "get": {
         "tags": [
@@ -1838,13 +2011,17 @@
       "PageLivroResponse": {
         "type": "object",
         "properties": {
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
           "totalPages": {
             "type": "integer",
             "format": "int32"
           },
-          "totalElements": {
+          "numberOfElements": {
             "type": "integer",
-            "format": "int64"
+            "format": "int32"
           },
           "first": {
             "type": "boolean"
@@ -1869,10 +2046,6 @@
           "sort": {
             "$ref": "#/components/schemas/SortObject"
           },
-          "numberOfElements": {
-            "type": "integer",
-            "format": "int32"
-          },
           "pageable": {
             "$ref": "#/components/schemas/PageableObject"
           },
@@ -1891,7 +2064,7 @@
           "sort": {
             "$ref": "#/components/schemas/SortObject"
           },
-          "paged": {
+          "unpaged": {
             "type": "boolean"
           },
           "pageNumber": {
@@ -1902,7 +2075,7 @@
             "type": "integer",
             "format": "int32"
           },
-          "unpaged": {
+          "paged": {
             "type": "boolean"
           }
         }
@@ -1913,10 +2086,10 @@
           "empty": {
             "type": "boolean"
           },
-          "sorted": {
+          "unsorted": {
             "type": "boolean"
           },
-          "unsorted": {
+          "sorted": {
             "type": "boolean"
           }
         }
@@ -1993,6 +2166,225 @@
             "type": "string",
             "format": "date-time",
             "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "ApiResponseResumoDashboardResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ResumoDashboardResponse",
+            "description": "Dados retornados pela operacao"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "ResumoDashboardResponse": {
+        "type": "object",
+        "description": "Resumo numerico dos KPIs do dashboard do responsavel",
+        "properties": {
+          "livrosLidosNoMes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Quantidade de livros concluidos dentro do mes atual"
+          },
+          "diasComLivroAtual": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Dias decorridos desde o inicio da leitura atual; null quando nao ha leitura em andamento"
+          },
+          "tituloLivroAtual": {
+            "type": "string",
+            "description": "Titulo do livro em leitura no momento; null quando nao ha leitura em andamento"
+          },
+          "percentualMetasMensais": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Percentual medio (0 a 100) das metas que abrangem o mes atual e nao estao arquivadas"
+          },
+          "totalMetasMensais": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Quantidade de metas que abrangem o mes atual e nao estao arquivadas"
+          },
+          "metasMensaisConcluidas": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Quantidade de metas mensais ja concluidas"
+          }
+        }
+      },
+      "ApiResponseListGeneroLeituraResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "array",
+            "description": "Dados retornados pela operacao",
+            "items": {
+              "$ref": "#/components/schemas/GeneroLeituraResponse"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "GeneroLeituraResponse": {
+        "type": "object",
+        "description": "Distribuicao de leituras concluidas agrupadas por categoria/genero",
+        "properties": {
+          "categoria": {
+            "type": "string",
+            "description": "Nome da categoria (ou SEM_CATEGORIA para livros sem categoria definida)"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de leituras concluidas nessa categoria"
+          },
+          "percentual": {
+            "type": "number",
+            "format": "double",
+            "description": "Percentual da categoria sobre o total de leituras concluidas (0 a 100)"
+          }
+        }
+      },
+      "ApiResponseListEvolucaoMensalResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "array",
+            "description": "Dados retornados pela operacao",
+            "items": {
+              "$ref": "#/components/schemas/EvolucaoMensalResponse"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "EvolucaoMensalResponse": {
+        "type": "object",
+        "description": "Total de livros lidos em um determinado mes",
+        "properties": {
+          "ano": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ano (ex.: 2026)"
+          },
+          "mes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Mes (1 a 12)"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total de leituras concluidas no mes"
+          }
+        }
+      },
+      "ApiResponseListAtividadeResponse": {
+        "type": "object",
+        "description": "Resposta padrao da API",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se a operacao foi bem-sucedida"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado"
+          },
+          "data": {
+            "type": "array",
+            "description": "Dados retornados pela operacao",
+            "items": {
+              "$ref": "#/components/schemas/AtividadeResponse"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da resposta"
+          }
+        }
+      },
+      "AtividadeResponse": {
+        "type": "object",
+        "description": "Representa um evento ocorrido (livro iniciado/concluido, meta criada/concluida) para o feed de atividades",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tipo": {
+            "type": "string",
+            "description": "Tipo do evento",
+            "enum": [
+              "LIVRO_INICIADO",
+              "LIVRO_CONCLUIDO",
+              "META_CRIADA",
+              "META_CONCLUIDA"
+            ]
+          },
+          "referenciaTipo": {
+            "type": "string",
+            "description": "Tipo do recurso referenciado para permitir navegacao no frontend",
+            "enum": [
+              "LIVRO",
+              "META"
+            ]
+          },
+          "referenciaId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Id do recurso referenciado (ex.: livro.id ou meta.id)"
+          },
+          "tituloResumo": {
+            "type": "string",
+            "description": "Texto resumido pronto para exibicao"
+          },
+          "ocorridoEm": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Data/hora exata em que o evento ocorreu"
           }
         }
       }

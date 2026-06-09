@@ -67,4 +67,10 @@ export const ENDPOINTS = {
   // Livros
   LIVROS: '/api/livros',
   LIVRO: (id) => `/api/livros/${id}`,
+
+  // Dashboard
+  DASHBOARD_RESUMO: (matricula) => `/api/alunos/${matricula}/dashboard/resumo`,
+  DASHBOARD_GENEROS: (matricula) => `/api/alunos/${matricula}/dashboard/generos`,
+  DASHBOARD_EVOLUCAO: (matricula) => `/api/alunos/${matricula}/dashboard/evolucao-mensal`,
+  DASHBOARD_ATIVIDADES: (matricula) => `/api/alunos/${matricula}/dashboard/atividades`,
 };
