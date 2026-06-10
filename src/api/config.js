@@ -67,6 +67,7 @@ export const ENDPOINTS = {
   // Livros
   LIVROS: '/api/livros',
   LIVRO: (id) => `/api/livros/${id}`,
+  LIVRO_ISBN: (isbn) => `/api/livros/isbn/${isbn}`,
 
   // Dashboard
   DASHBOARD_RESUMO: (matricula) => `/api/alunos/${matricula}/dashboard/resumo`,

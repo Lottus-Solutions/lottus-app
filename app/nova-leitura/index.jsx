@@ -207,12 +207,13 @@ export default function NovaLeituraScreen() {
   const [paginaAtual, setPaginaAtual] = useState(0);
   const [temMais, setTemMais] = useState(true);
   const [error, setError] = useState(null);
-  const [registrando, setRegistrando] = useState(null); // id do livro em registro
+  const [registrando, setRegistrando] = useState(null); // id do livro em registro (loading)
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerStatus, setScannerStatus] = useState(null); // 'searching' | 'notfound' | null
-  const [isbnDetectado, setIsbnDetectado] = useState(null);
-  const [livroGoogle, setLivroGoogle] = useState(null);
-  const [ocrResumo, setOcrResumo] = useState(null);
+  const [isbnDetectado, setIsbnDetectado] = useState(null); // ISBN bruto/normalizado do scanner
+  const [livroGoogle, setLivroGoogle] = useState(null); // Detalhes do livro se encontrado apenas no Google Books
+  const [livroAcervoDetectado, setLivroAcervoDetectado] = useState(null); // Detalhes do livro se encontrado no acervo
+  const [ocrResumo, setOcrResumo] = useState(null); // Texto OCR se detecção via OCR
 
   const carregarPagina = async ({ page, replace = false, buscaTerm }) => {
     const requestId = ++requestIdRef.current;
@@ -275,111 +276,128 @@ export default function NovaLeituraScreen() {
     });
   };
 
+  // Função unificada para registrar um livro do acervo
   const handleRegistrar = async (livro) => {
     if (!matricula) {
       const msg = 'Selecione um aluno antes de registrar leitura.';
-      if (Platform.OS !== 'web') Alert.alert('Nova leitura', msg);
+      Alert.alert('Nova leitura', msg);
       setError(msg);
       return;
     }
-    setRegistrando(livro.id);
+
+    setRegistrando(livro.id); // Estado de loading para o item específico
     setError(null);
+
     try {
       await emprestimoService.registrarLeitura(matricula, { livroId: livro.id });
       invalidate(['emprestimos', 'alunos', 'metas']);
       router.back();
     } catch (err) {
-      let msg = 'Não foi possível registrar a leitura.';
+      let msg = 'Falha ao registrar a leitura.';
       if (err instanceof ApiError) {
         if (err.status === 409) msg = 'Este aluno já possui uma leitura em andamento.';
         else if (err.status === 403) msg = 'Aluno não vinculado ao seu cadastro.';
         else if (err.status === 404) msg = 'Livro ou aluno não encontrado.';
         else if (err.message) msg = err.message;
       }
-      if (Platform.OS !== 'web') Alert.alert('Nova leitura', msg);
+      Alert.alert('Nova leitura', msg);
       setError(msg);
     } finally {
       setRegistrando(null);
     }
   };
 
-  /* Callback quando o scanner detecta um código */
+ const processarIsbnDetectado = async ({ isbn, type, ocrText }) => {
+    // Limpar estados relevantes ao iniciar uma nova detecção
+    setIsbnDetectado(null);
+    setLivroGoogle(null);
+    setLivroAcervoDetectado(null);
+    setOcrResumo(null);
+    setError(null);
+    setScannerStatus('searching'); // Indicador visual de busca
+
+    try {
+      // 1. Tentar buscar no acervo local
+      const livroDoAcervo = await livroService.buscarPorIsbn(isbn);
+
+      if (livroDoAcervo) {
+        setIsbnDetectado(isbn); // Manter o ISBN para exibir no card
+        setLivroAcervoDetectado(livroDoAcervo);
+        setOcrResumo(type === 'ocr' ? (ocrText || 'Texto reconhecido pela câmera.') : null);
+        setScannerOpen(false); // Fechar o scanner imediatamente se encontrou no acervo
+        setScannerStatus(null); // Limpar status de busca
+
+        // Em Web, registra direto. Em mobile, pergunta.
+        if (Platform.OS === 'web') {
+          await handleRegistrar(livroDoAcervo);
+          return; // Termina o fluxo aqui
+        }
+
+        Alert.alert(
+          'Livro encontrado no acervo',
+          `${livroDoAcervo.titulo}\n${livroDoAcervo.autor || ''}\n\nRegistrar como leitura atual?`,
+          [
+            { text: 'Cancelar', style: 'cancel'},
+            { text: 'Registrar', onPress: () => handleRegistrar(livroDoAcervo) },
+          ]
+        );
+        return;
+      }
+
+      // 2. Se NÃO encontrou no acervo, tentar buscar no Google Books
+      const livroDoGoogle = await livroService.buscarNoGooglePorIsbn(isbn);
+
+      if (livroDoGoogle) {
+        setIsbnDetectado(isbn); // Manter o ISBN para exibir no card
+        setLivroGoogle(livroDoGoogle);
+        setOcrResumo(type === 'ocr' ? (ocrText || 'Texto reconhecido pela câmera.') : null);
+        setScannerOpen(false); // Fechar o scanner
+        setScannerStatus(null); // Limpar status de busca
+        return;
+      }
+
+      // 3. Se não encontrou nem no acervo nem no Google Books
+      setScannerStatus('notfound'); // Define um status para exibir uma mensagem
+      setScannerOpen(false); // Fecha o scanner se não encontrou nada em lugar nenhum
+
+      Alert.alert(
+        'Livro não encontrado',
+        `ISBN ${isbn} foi lido, mas não encontramos o livro no acervo nem no Google Books.`,
+        [{ text: 'OK', onPress: () => setScannerStatus(null) }] // Limpa status após o OK
+      );
+
+    } catch (err) {
+      setScannerStatus(null);
+      setScannerOpen(false); // Fechar o scanner em caso de erro
+      const msg =
+        err instanceof ApiError
+          ? err.message || 'Falha na comunicação com o servidor.'
+          : 'Erro de conexão ou servidor.';
+      Alert.alert('Erro', msg);
+      setError(msg);
+    }
+  };
+
+
+  /* -------------------------------------------------------------------------- */
+  /* Callback quando o scanner detecta um código - Ponto de Entrada do Scanner  */
+  /* -------------------------------------------------------------------------- */
   const handleScannerDetect = async ({ data, type, ocrText }) => {
-    const isbn = livroService.normalizarIsbn(data);
-    if (!isbn) {
+    console.log('handleScannerDetect: Código detectado pelo scanner. Data:', data, 'Type:', type);
+    const isbnRaw = data;
+    const isbnNormalizado = livroService.normalizarIsbn(isbnRaw);
+    console.log('handleScannerDetect: ISBN bruto:', isbnRaw, 'ISBN normalizado:', isbnNormalizado);
+
+    if (!isbnNormalizado) {
+      console.warn('handleScannerDetect: ISBN normalizado é inválido ou vazio.');
       setScannerStatus('notfound');
       setScannerOpen(false);
-      if (Platform.OS !== 'web') Alert.alert('Scanner', 'Não foi possível identificar um ISBN válido.');
+      Alert.alert('Scanner', 'Não foi possível identificar um ISBN válido.');
       return;
     }
 
-    setIsbnDetectado(isbn);
-    setLivroGoogle(null);
-  setOcrResumo(type === 'ocr' ? (ocrText || 'Texto reconhecido pela câmera.') : null);
-    setScannerStatus('searching');
-    try {
-      const livro = await livroService.buscarPorIsbn(isbn);
-      if (!livro) {
-        setScannerStatus('searching');
-        const googleLivro = await livroService.buscarNoGooglePorIsbn(isbn);
-
-        if (!googleLivro) {
-          setScannerStatus('notfound');
-          if (Platform.OS !== 'web') {
-            Alert.alert(
-              'ISBN identificado',
-              `ISBN ${isbn} foi lido, mas não encontramos o livro no acervo nem no Google Books.`,
-              [{ text: 'OK', onPress: () => setScannerOpen(false) }]
-            );
-          } else {
-            setScannerOpen(false);
-          }
-          setScannerStatus(null);
-          return;
-        }
-
-        setLivroGoogle(googleLivro);
-        setScannerOpen(false);
-        setScannerStatus(null);
-        if (Platform.OS !== 'web') {
-          Alert.alert(
-            'ISBN identificado no Google Books',
-            [
-              googleLivro.titulo,
-              googleLivro.autor,
-              googleLivro.editora ? `Editora: ${googleLivro.editora}` : null,
-              `ISBN: ${googleLivro.isbn}`,
-            ]
-              .filter(Boolean)
-              .join('\n'),
-            [{ text: 'OK' }]
-          );
-        }
-        return;
-      }
-      // Encontrou: pergunta confirmação antes de registrar.
-      setScannerOpen(false);
-      setScannerStatus(null);
-      if (Platform.OS === 'web') {
-        await handleRegistrar(livro);
-        return;
-      }
-      Alert.alert(
-        'Livro encontrado',
-        `${livro.titulo}\n${livro.autor || ''}\n\nRegistrar como leitura atual?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Registrar', onPress: () => handleRegistrar(livro) },
-        ]
-      );
-    } catch (err) {
-      setScannerStatus(null);
-      setScannerOpen(false);
-      const msg =
-        err instanceof ApiError ? err.message : 'Falha ao buscar pelo ISBN.';
-      if (Platform.OS !== 'web') Alert.alert('Scanner', msg);
-      setError(msg);
-    }
+    setIsbnDetectado(isbnNormalizado); // Define o ISBN detectado para o card de feedback
+    await processarIsbnDetectado({ isbn: isbnNormalizado, type, ocrText });
   };
 
   const placeholder = useMemo(() => 'Buscar por título, autor ou ISBN', []);
@@ -469,6 +487,7 @@ export default function NovaLeituraScreen() {
               setBusca(text);
               setIsbnDetectado(null);
               setLivroGoogle(null);
+              setLivroAcervoDetectado(null);
               setOcrResumo(null);
             }}
             placeholder={placeholder}
@@ -478,7 +497,8 @@ export default function NovaLeituraScreen() {
           />
         </View>
 
-        {!!isbnDetectado && (
+        {/* --- Card de Feedback do ISBN --- */}
+        {!!isbnDetectado && (livroGoogle || livroAcervoDetectado) && (
           <View style={styles.isbnCard}>
             <Text style={styles.isbnLabel}>ISBN detectado</Text>
             <Text style={styles.isbnValue}>{isbnDetectado}</Text>
@@ -487,17 +507,51 @@ export default function NovaLeituraScreen() {
                 OCR: {ocrResumo}
               </Text>
             ) : null}
-            {livroGoogle ? (
-              <Text style={styles.isbnGoogleText} numberOfLines={2}>
-                Google Books: {livroGoogle.titulo}
-                {livroGoogle.autor ? ` · ${livroGoogle.autor}` : ''}
-              </Text>
+
+            {livroAcervoDetectado ? (
+              <>
+                <Text style={styles.isbnGoogleText} numberOfLines={2}>
+                  No acervo: {livroAcervoDetectado.titulo}
+                  {livroAcervoDetectado.autor ? ` · ${livroAcervoDetectado.autor}` : ''}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.isbnCardBtn, registrando === livroAcervoDetectado.id && styles.isbnCardBtnDisabled]}
+                  onPress={() => handleRegistrar(livroAcervoDetectado)}
+                  disabled={registrando === livroAcervoDetectado.id}
+                  activeOpacity={0.85}
+                >
+                  {registrando === livroAcervoDetectado.id ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.isbnCardBtnText}>Registrar leitura</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            ) : livroGoogle ? (
+              <>
+                <Text style={styles.isbnGoogleText} numberOfLines={2}>
+                  Google Books: {livroGoogle.titulo}
+                  {livroGoogle.autor ? ` · ${livroGoogle.autor}` : ''}
+                </Text>
+                <Text style={styles.isbnCardWarning}>
+                  Este livro não está no seu acervo. Não pode ser registrado diretamente.
+                  Solicite a um administrador para adicioná-lo.
+                </Text>
+                {/* Botão de registro desabilitado para livros do Google que não estão no acervo */}
+                <TouchableOpacity
+                  style={[styles.isbnCardBtn, styles.isbnCardBtnDisabled]}
+                  disabled={true} // O botão deve estar sempre desabilitado aqui
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.isbnCardBtnText}>Registrar leitura (Indisponível)</Text>
+                </TouchableOpacity>
+              </>
             ) : null}
           </View>
         )}
 
         {!!error && <Text style={styles.errorText}>{error}</Text>}
-        {scannerStatus === 'searching' && (
+        {scannerStatus === 'searching' && !livroAcervoDetectado && !livroGoogle && (
           <Text style={styles.statusText}>Buscando ISBN no acervo e no Google Books…</Text>
         )}
 
@@ -522,7 +576,7 @@ export default function NovaLeituraScreen() {
               </View>
               <TouchableOpacity
                 style={[styles.itemBtn, registrando === livro.id && styles.itemBtnDisabled]}
-                onPress={() => handleRegistrar(livro)}
+                onPress={() => handleRegistrar(livro)} // Usa a função handleRegistrar unificada
                 disabled={registrando !== null}
                 activeOpacity={0.85}
               >
@@ -727,6 +781,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4D6B73',
     marginTop: 4,
+  },
+  isbnCardBtn: {
+    marginTop: 12,
+    backgroundColor: '#0292B7',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  isbnCardBtnDisabled: {
+    opacity: 0.6,
+  },
+  isbnCardBtnText: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  isbnCardWarning: { // Adicionado estilo para a mensagem de aviso do Google Books
+    fontFamily: 'KoHo_500Medium',
+    fontSize: 12,
+    color: '#B43D35', // Cor de aviso/erro
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   item: {
     backgroundColor: '#FFFFFF',
