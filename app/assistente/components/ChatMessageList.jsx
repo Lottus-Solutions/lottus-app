@@ -24,6 +24,7 @@ export default function ChatMessageList({
       style={styles.list}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       showsVerticalScrollIndicator={false}
     >
       {messages.map((message) => (

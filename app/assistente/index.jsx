@@ -7,16 +7,16 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
   Text,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   SafeAreaView,
-  TouchableWithoutFeedback, Keyboard,
+  Keyboard,
 } from 'react-native';
 import ChatComposer from './components/ChatComposer';
 import ChatMessageList from './components/ChatMessageList';
@@ -25,12 +25,14 @@ import assistenteService from '../../src/services/assistenteService';
 import usuarioService from '../../src/services/usuarioService';
 
 
-function createMessage({ role, text = '', type = 'text' }) {
+function createMessage({ role, text = '', type = 'text', fileName = null, data = null }) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     role,
     text,
     type,
+    fileName,
+    data,
   };
 }
 
@@ -59,6 +61,7 @@ export default function AssistenteScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioUri, setAudioUri] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedAlunoId, setSelectedAlunoId] = useState(null);
@@ -196,6 +199,28 @@ export default function AssistenteScreen() {
     setRecordingTime(0);
   }, [audioPlayer]);
 
+  const handlePickPdf = useCallback(async () => {
+    try {
+      setErrorMessage('');
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      setPdfFile({ uri: asset.uri, name: asset.name || 'boletim.pdf' });
+    } catch (error) {
+      setErrorMessage(getFriendlyErrorMessage(error));
+    }
+  }, []);
+
+  const handleCancelPdf = useCallback(() => {
+    setPdfFile(null);
+  }, []);
+
   const handleTogglePreview = useCallback(() => {
     if (!audioUri) return;
 
@@ -212,36 +237,52 @@ export default function AssistenteScreen() {
 
     const text = inputText.trim();
     const hasAudio = !!audioUri;
-    if (!text && !hasAudio) return;
+    const hasPdf = !!pdfFile;
+    if (!text && !hasAudio && !hasPdf) return;
 
     setErrorMessage('');
 
     const userMessage = createMessage({
       role: 'user',
       text,
-      type: hasAudio ? 'audio' : 'text',
+      type: hasPdf ? 'boletim' : hasAudio ? 'audio' : 'text',
+      fileName: hasPdf ? pdfFile.name : null,
     });
 
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
     setAudioUri(null);
+    setPdfFile(null);
     setIsLoading(true);
     Keyboard.dismiss();
 
     try {
-      const response = await assistenteService.enviarMensagemReforco({
-        alunoId: resolvedAlunoId,
-        texto: text,
-        audioUri,
-      });
+      if (hasPdf) {
+        const response = await assistenteService.analisarBoletim({
+          alunoId: resolvedAlunoId,
+          pdfUri: pdfFile.uri,
+          pdfName: pdfFile.name,
+        });
 
-      const aiText = response?.texto?.trim() ||
-        'Recebi sua mensagem. Pode me contar mais detalhes para eu te orientar melhor?';
+        setMessages((prev) => [
+          ...prev,
+          createMessage({ role: 'assistant', type: 'boletim-result', data: response }),
+        ]);
+      } else {
+        const response = await assistenteService.enviarMensagemReforco({
+          alunoId: resolvedAlunoId,
+          texto: text,
+          audioUri,
+        });
 
-      setMessages((prev) => [
-        ...prev,
-        createMessage({ role: 'assistant', text: aiText, type: 'text' }),
-      ]);
+        const aiText = response?.texto?.trim() ||
+          'Recebi sua mensagem. Pode me contar mais detalhes para eu te orientar melhor?';
+
+        setMessages((prev) => [
+          ...prev,
+          createMessage({ role: 'assistant', text: aiText, type: 'text' }),
+        ]);
+      }
     } catch (error) {
       const friendlyMessage = getFriendlyErrorMessage(error);
       setErrorMessage(friendlyMessage);
@@ -252,42 +293,43 @@ export default function AssistenteScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [audioUri, inputText, isLoading, isRecording, resolvedAlunoId]);
+  }, [audioUri, inputText, isLoading, isRecording, pdfFile, resolvedAlunoId]);
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <SafeAreaView style={styles.safe}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 120 : 0}
-        >
-          {errorMessage ? <Text style={styles.errorBanner}>{errorMessage}</Text> : null}
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 120 : 0}
+      >
+        {errorMessage ? <Text style={styles.errorBanner}>{errorMessage}</Text> : null}
 
-          <ChatMessageList
-            scrollViewRef={scrollViewRef}
-            messages={messages}
-            isLoading={isLoading}
-            userName={userName || 'Estudante'}
-          />
+        <ChatMessageList
+          scrollViewRef={scrollViewRef}
+          messages={messages}
+          isLoading={isLoading}
+          userName={userName || 'Estudante'}
+        />
 
-          <ChatComposer
-            inputText={inputText}
-            onChangeText={setInputText}
-            onSend={handleSend}
-            isLoading={isLoading}
-            isRecording={isRecording}
-            recordingTime={recordingTime}
-            audioUri={audioUri}
-            isPreviewPlaying={!!playerStatus?.playing}
-            onStartRecording={handleStartRecording}
-            onStopRecording={handleStopRecording}
-            onCancelAudio={handleCancelAudio}
-            onTogglePreview={handleTogglePreview}
-          />
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+        <ChatComposer
+          inputText={inputText}
+          onChangeText={setInputText}
+          onSend={handleSend}
+          isLoading={isLoading}
+          isRecording={isRecording}
+          recordingTime={recordingTime}
+          audioUri={audioUri}
+          isPreviewPlaying={!!playerStatus?.playing}
+          onStartRecording={handleStartRecording}
+          onStopRecording={handleStopRecording}
+          onCancelAudio={handleCancelAudio}
+          onTogglePreview={handleTogglePreview}
+          pdfFile={pdfFile}
+          onPickPdf={handlePickPdf}
+          onCancelPdf={handleCancelPdf}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

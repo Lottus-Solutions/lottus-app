@@ -1,7 +1,9 @@
 import {
   ArrowRight,
   CircleStop,
+  FileText,
   Mic,
+  Paperclip,
   Pause,
   Play,
   Trash2,
@@ -38,8 +40,12 @@ export default function ChatComposer({
   onStopRecording,
   onCancelAudio,
   onTogglePreview,
+  pdfFile,
+  onPickPdf,
+  onCancelPdf,
 }) {
-  const canSend = !isLoading && (!!inputText.trim() || !!audioUri) && !isRecording;
+  const canSend =
+    !isLoading && (!!inputText.trim() || !!audioUri || !!pdfFile) && !isRecording;
 
   return (
     <View style={styles.wrapper}>
@@ -77,6 +83,20 @@ export default function ChatComposer({
         </View>
       ) : null}
 
+      {!isRecording && pdfFile ? (
+        <View style={styles.previewBox}>
+          <View style={styles.pdfPreviewRow}>
+            <FileText size={16} color="#0292B7" />
+            <Text style={styles.pdfFileName} numberOfLines={1}>
+              {pdfFile.name}
+            </Text>
+            <TouchableOpacity style={styles.pdfRemoveBtn} onPress={onCancelPdf}>
+              <Trash2 size={14} color="#B32E2E" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.inputContainer}>
         <TextInput
           value={inputText}
@@ -89,7 +109,13 @@ export default function ChatComposer({
           editable={!isLoading && !isRecording}
         />
 
-        {!audioUri ? (
+        {!audioUri && !pdfFile && !isRecording ? (
+          <TouchableOpacity onPress={onPickPdf} style={styles.attachBtn} disabled={isLoading}>
+            <Paperclip size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : null}
+
+        {!audioUri && !pdfFile ? (
           <TouchableOpacity
             onPress={isRecording ? onStopRecording : onStartRecording}
             style={[styles.micBtn, isRecording && styles.micBtnActive]}
@@ -185,6 +211,20 @@ const styles = StyleSheet.create({
   previewDelete: {
     color: '#B32E2E',
   },
+  pdfPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pdfFileName: {
+    flex: 1,
+    fontFamily: 'KoHo_600SemiBold',
+    color: '#1A1A1A',
+    fontSize: 13,
+  },
+  pdfRemoveBtn: {
+    padding: 4,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -207,6 +247,14 @@ const styles = StyleSheet.create({
     minHeight: 20,
     maxHeight: 120,
     paddingVertical: 6,
+  },
+  attachBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#0EA5B9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   micBtn: {
     width: 34,

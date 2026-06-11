@@ -1,18 +1,38 @@
+import { FileText } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import BoletimResultCard from './BoletimResultCard';
 
 export default function ChatBubble({ message }) {
   const isUser = message.role === 'user';
   const isAudio = message.type === 'audio';
+  const isBoletim = message.type === 'boletim';
+  const isBoletimResult = message.type === 'boletim-result';
 
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.aiContainer]}>
-      <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
+      <View
+        style={[
+          styles.bubble,
+          isUser ? styles.userBubble : styles.aiBubble,
+        ]}
+      >
         {isAudio ? (
           <Text style={[styles.audioText, isUser ? styles.userText : styles.aiText]}>
             Audio enviado
           </Text>
         ) : null}
+
+        {isBoletim ? (
+          <View style={styles.fileRow}>
+            <FileText size={16} color={isUser ? '#FFFFFF' : '#0292B7'} />
+            <Text style={[styles.fileName, isUser ? styles.userText : styles.aiText]} numberOfLines={1}>
+              {message.fileName || 'boletim.pdf'}
+            </Text>
+          </View>
+        ) : null}
+
+        {isBoletimResult ? <BoletimResultCard data={message.data} /> : null}
 
         {!!message.text && (
           <Text style={[styles.text, isUser ? styles.userText : styles.aiText]}>
@@ -69,5 +89,15 @@ const styles = StyleSheet.create({
   },
   aiText: {
     color: '#1A1A1A',
+  },
+  fileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fileName: {
+    fontFamily: 'KoHo_600SemiBold',
+    fontSize: 14,
+    flexShrink: 1,
   },
 });

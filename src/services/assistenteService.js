@@ -5,6 +5,7 @@ const ASSISTENTE_API_BASE = ASSISTENTE_API_URL.replace(/\/$/, '');
 const CHAT_REFORCO_ENDPOINT = `${ASSISTENTE_API_BASE}/chat-reforco`;
 const PERFIL_LEITURA_ENDPOINT = `${ASSISTENTE_API_BASE}/perfil-leitura`;
 const RECOMENDAR_ENDPOINT = `${ASSISTENTE_API_BASE}/recomendar`;
+const ANALISAR_BOLETIM_ENDPOINT = `${ASSISTENTE_API_BASE}/analisar-boletim`;
 
 function normalizePayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
@@ -38,6 +39,16 @@ function normalizePayload(payload) {
   return {
     texto: JSON.stringify(payload),
     raw: payload,
+  };
+}
+
+function buildPdfPart(pdfUri, pdfName) {
+  const name = pdfName || pdfUri.split('/').pop() || `boletim-${Date.now()}.pdf`;
+
+  return {
+    uri: pdfUri,
+    name,
+    type: 'application/pdf',
   };
 }
 
@@ -161,6 +172,38 @@ export async function enviarMensagemReforco({ alunoId, texto, audioUri }) {
   return normalizePayload(payload);
 }
 
+export async function analisarBoletim({ alunoId, pdfUri, pdfName }) {
+  const alunoIdInt = normalizeAlunoId(alunoId);
+
+  if (!pdfUri) {
+    throw new Error('Selecione um arquivo PDF do boletim.');
+  }
+
+  assertAssistantBaseUrl();
+
+  const body = new FormData();
+  body.append('aluno_id', String(alunoIdInt));
+  body.append('boletim', buildPdfPart(pdfUri, pdfName));
+
+  const response = await fetch(ANALISAR_BOLETIM_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+    },
+    body,
+  });
+
+  const payload = await parseResponse(response);
+
+  if (!response.ok) {
+    const message =
+      payload?.error || payload?.message || payload?.detail || 'Falha ao analisar boletim.';
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
 export async function recalcularPerfilLeitura(alunoId) {
   const alunoIdInt = normalizeAlunoId(alunoId);
   return postJson(PERFIL_LEITURA_ENDPOINT, { aluno_id: alunoIdInt });
@@ -171,4 +214,9 @@ export async function recomendarLeituras(alunoId) {
   return postJson(RECOMENDAR_ENDPOINT, { aluno_id: alunoIdInt });
 }
 
-export default { enviarMensagemReforco, recalcularPerfilLeitura, recomendarLeituras };
+export default {
+  enviarMensagemReforco,
+  recalcularPerfilLeitura,
+  recomendarLeituras,
+  analisarBoletim,
+};

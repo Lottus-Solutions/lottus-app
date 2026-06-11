@@ -19,6 +19,7 @@ import emprestimoService from '../../src/services/emprestimoService';
 import assistenteService from '../../src/services/assistenteService';
 import usuarioService from '../../src/services/usuarioService';
 import { ApiError } from '../../src/api/client';
+import RecommendationCard, { isEmptyRecommendation } from './components/RecommendationCard';
 
 function diasAteData(dateStr) {
   if (!dateStr) return null;
@@ -33,21 +34,6 @@ function formatDate(iso) {
   if (!iso) return '-';
   const [y, m, d] = iso.split('-');
   return y && m && d ? `${d}/${m}/${y}` : iso;
-}
-
-function formatRecommendationItem(item) {
-  if (item == null) return '';
-  if (typeof item === 'string') return item;
-  if (typeof item !== 'object') return String(item);
-
-  const title = item.titulo || item.livroTitulo || item.nome || item.title || 'Recomendação';
-  const author = item.autor || item.autora || item.writer;
-  const reason = item.motivo || item.justificativa || item.descricao || item.resumo;
-
-  const lines = [title];
-  if (author) lines.push(author);
-  if (reason) lines.push(reason);
-  return lines.join('\n');
 }
 
 function normalizeEmprestimoAtual(data) {
@@ -254,22 +240,14 @@ export default function LeiturasScreen() {
 
     try {
       const result = await assistenteService.recomendarLeituras(alunoId);
-      const rawRecomendacoes =
-        result?.recomendacoes || result?.recommendations || result?.data || result;
-      const list = Array.isArray(rawRecomendacoes)
-        ? rawRecomendacoes
-        : rawRecomendacoes
-        ? [rawRecomendacoes]
-        : [];
+      const list = Array.isArray(result?.recomendacoes) ? result.recomendacoes : [];
 
       setRecomendacoes(list);
-      setRecomendacoesMessage('Recomendações da IA geradas com sucesso.');
+      if (!(list.length === 1 && isEmptyRecommendation(list[0]))) {
+        setRecomendacoesMessage('Recomendações da IA geradas com sucesso.');
+      }
     } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message || 'Nao foi possivel gerar as recomendações da IA.'
-          : 'Nao foi possivel gerar as recomendações da IA.';
-      setRecomendacoesError(msg);
+      setRecomendacoesError(err?.message || 'Nao foi possivel gerar as recomendações da IA.');
     } finally {
       setRecomendando(false);
     }
@@ -356,9 +334,7 @@ export default function LeiturasScreen() {
               {Array.isArray(recomendacoes) && recomendacoes.length > 0 ? (
                 <View style={styles.recommendationsWrap}>
                   {recomendacoes.map((item, index) => (
-                    <View key={`${index}-${String(item?.id ?? item?.titulo ?? index)}`} style={styles.recommendationCard}>
-                      <Text style={styles.recommendationText}>{formatRecommendationItem(item)}</Text>
-                    </View>
+                    <RecommendationCard key={`${index}-${item.titulo}`} item={item} />
                   ))}
                 </View>
               ) : null}
@@ -477,19 +453,6 @@ const styles = StyleSheet.create({
   recommendationsWrap: {
     marginTop: 12,
     gap: 10,
-  },
-  recommendationCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E4F0F3',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-  },
-  recommendationText: {
-    fontFamily: 'KoHo_400Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#1A1A1A',
   },
   successBanner: {
     fontFamily: 'KoHo_500Medium',
