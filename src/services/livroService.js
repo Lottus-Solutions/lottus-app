@@ -1,4 +1,4 @@
-import { apiClient } from '../api/client';
+import { apiClient, ApiError } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 
 export function normalizarIsbn(isbn) {
@@ -81,18 +81,22 @@ export function getLivro(id) {
 }
 
 /**
- * Helper para busca por ISBN — o backend não expõe endpoint /isbn,
- * então buscamos via parâmetro genérico "busca" e filtramos exato.
+ * GET /api/livros/isbn/{isbn}
+ * Retorna dados do livro do acervo local, se existir.
  */
 export async function buscarPorIsbn(isbn) {
   const isbnNormalizado = normalizarIsbn(isbn);
   if (!isbnNormalizado) return null;
 
-  const result = await listLivros({ busca: isbnNormalizado, size: 50 });
-  const content = result?.content ?? [];
-  return (
-    content.find((l) => normalizarIsbn(l.isbn) === isbnNormalizado) || null
-  );
+  try {
+    const livroEncontrado = await apiClient.get(ENDPOINTS.LIVRO_ISBN(isbnNormalizado));
+    return livroEncontrado || null; 
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
